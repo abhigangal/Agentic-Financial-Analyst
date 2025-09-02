@@ -188,7 +188,8 @@ TASK: Synthesize specialist context and verified metrics into an investment thes
 [CHIEF_ANALYST_CRITIQUE]
 ${UNIVERSAL_RULES}
 Rules: Currency India = 'Rs.'; Recommendations: 'Strong Buy'|'Buy'|'Hold'|'Sell'|'Strong Sell'|'N/A'; Sentiment: 'Strong Bullish'|'Bullish'|'Neutral'|'Bearish'|'Strong Bearish'|'N/A'.
-CRITICAL RULE: The 'target_price' (both short_term and long_term) and 'stop_loss' fields MUST be populated with a specific numeric value. DO NOT use 'null' for these fields. Derive a plausible price using technical analysis (e.g., support/resistance levels) or fundamental analysis (e.g., P/E multiples). State your methodology in the justification.
+CRITICAL RULE 1: The 'target_price' (both short_term and long_term) and 'stop_loss' fields MUST be populated with a specific numeric value. DO NOT use 'null' for these fields. Derive a plausible price using technical analysis (e.g., support/resistance levels) or fundamental analysis (e.g., P/E multiples). State your methodology in the justification.
+CRITICAL RULE 2: For any 'Buy' or 'Hold' recommendation, the 'stop_loss' price MUST be lower than the 'current_price'. For any 'Sell' recommendation, it must be higher.
 SCHEMA:
 {
   "stock_symbol": "string", "share_name": "string", "current_price": "number|null", "price_change": "number|null", "price_change_percentage": "string|null", "last_updated": "ISO date",

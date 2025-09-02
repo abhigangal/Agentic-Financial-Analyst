@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ExecutionStep } from '../types';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ExecutionStep, ChiefAnalystCritique } from '../types';
 
 // --- Color and Font Definitions for a Professional Theme ---
 const COLORS = {
@@ -9,7 +9,11 @@ const COLORS = {
     SECONDARY_TEXT: '#64748B', // slate-500
     ACCENT_BLUE: '#2563EB', // blue-600
     BORDER_LIGHT: '#E2E8F0', // slate-200
-    CODE_BG: '#F1F5F9' // slate-100
+    CODE_BG: '#F1F5F9', // slate-100
+    WHITE: '#FFFFFF',
+    RED: '#DC2626', // red-600
+    GREEN: '#16A34A', // green-600
+    YELLOW: '#EAB308', // yellow-500
 };
 
 const FONT_SIZES = {
@@ -25,6 +29,17 @@ const getFilenameTimestamp = (): string => {
     const pad = (n: number) => n.toString().padStart(2, '0');
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
 }
+
+const formatPrice = (price: number | null, currencySymbol: string): string => {
+    if (price === null || isNaN(price)) return 'N/A';
+    return `${currencySymbol}${price.toFixed(2)}`;
+};
+
+const getMetricValue = (metric: CalculatedMetric | number | null): number | null => {
+    if (typeof metric === 'number') return metric;
+    if (metric && typeof metric === 'object' && 'value' in metric) return metric.value;
+    return null;
+};
 
 class PdfBuilder {
   private doc: jsPDF;
@@ -47,25 +62,25 @@ class PdfBuilder {
   private addPageIfNeeded(requiredHeight: number) {
     if (this.y + requiredHeight > this.pageHeight - this.margin) {
       this.doc.addPage();
-      this.y = this.margin;
+      this.y = this.margin + 20; // Extra top margin on new pages
     }
   }
 
   private addHeadersAndFooters() {
-      const pageCount = this.doc.internal.pages.length - 1;
-      for (let i = 1; i <= pageCount + 1; i++) {
+      const pageCount = this.doc.internal.pages.length;
+      for (let i = 1; i <= pageCount; i++) {
           this.doc.setPage(i);
           
           // Header
           this.doc.setFontSize(FONT_SIZES.SMALL);
           this.doc.setFont('helvetica', 'bold');
           this.doc.setTextColor(COLORS.SECONDARY_TEXT);
-          this.doc.text(this.headerTitle, this.margin, this.margin - 10);
+          this.doc.text(this.headerTitle, this.margin, this.margin - 15);
           this.doc.setDrawColor(COLORS.BORDER_LIGHT);
-          this.doc.line(this.margin, this.margin, this.pageWidth - this.margin, this.margin);
+          this.doc.line(this.margin, this.margin-5, this.pageWidth - this.margin, this.margin-5);
           
           // Footer
-          const pageStr = `Page ${i} of ${pageCount + 1}`;
+          const pageStr = `Page ${i} of ${pageCount}`;
           this.doc.setDrawColor(COLORS.BORDER_LIGHT);
           this.doc.line(this.margin, this.pageHeight - this.margin, this.pageWidth - this.margin, this.pageHeight - this.margin);
           this.doc.setTextColor(COLORS.SECONDARY_TEXT);
@@ -93,7 +108,7 @@ class PdfBuilder {
     this.doc.text(`Generated on: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`, this.pageWidth / 2, this.y, { align: 'center' });
     
     this.doc.addPage();
-    this.y = this.margin;
+    this.y = this.margin + 20;
   }
 
   addSectionTitle(text: string) {
@@ -104,8 +119,17 @@ class PdfBuilder {
     this.doc.text(text, this.margin, this.y);
     this.y += 25;
   }
+
+  addSubsectionTitle(text: string) {
+      this.addPageIfNeeded(30);
+      this.doc.setFontSize(FONT_SIZES.H3);
+      this.doc.setFont('helvetica', 'bold');
+      this.doc.setTextColor(COLORS.ACCENT_BLUE);
+      this.doc.text(text, this.margin, this.y);
+      this.y += 18;
+  }
   
-  addBodyText(text: string) {
+  addBodyText(text: string | null | undefined) {
     const sanitizedText = String(text || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
     if (!sanitizedText) return;
 
@@ -194,6 +218,77 @@ class PdfBuilder {
     
     this.addSpacer(10);
   }
+  
+  addKeyInsightBox(title: string, value: string, color: string) {
+    this.doc.setFontSize(FONT_SIZES.SMALL);
+    this.doc.setTextColor(COLORS.SECONDARY_TEXT);
+    this.doc.text(title, this.margin + 10, this.y + 15);
+    
+    this.doc.setFontSize(FONT_SIZES.H3);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setTextColor(color);
+    this.doc.text(value, this.margin + 10, this.y + 35);
+  }
+
+  addKeyInsightsGrid(analysisResult: StockAnalysis, currencySymbol: string) {
+    const boxWidth = this.contentWidth / 4 - 5;
+    const boxHeight = 50;
+    this.addPageIfNeeded(boxHeight + 20);
+    const startX = this.margin;
+    
+    const insights = [
+        { title: 'Recommendation', value: analysisResult.recommendation, color: COLORS.ACCENT_BLUE },
+        { title: 'Short-Term Target', value: formatPrice(getMetricValue(analysisResult.target_price.short_term), currencySymbol), color: COLORS.PRIMARY_TEXT },
+        { title: 'Long-Term Target', value: formatPrice(getMetricValue(analysisResult.target_price.long_term), currencySymbol), color: COLORS.PRIMARY_TEXT },
+        { title: 'Stop Loss', value: formatPrice(getMetricValue(analysisResult.stop_loss), currencySymbol), color: COLORS.RED }
+    ];
+
+    insights.forEach((insight, i) => {
+        const x = startX + i * (boxWidth + 5);
+        this.doc.setDrawColor(COLORS.BORDER_LIGHT);
+        this.doc.roundedRect(x, this.y, boxWidth, boxHeight, 5, 5, 'S');
+        this.addKeyInsightBox(insight.title, insight.value, insight.color);
+    });
+    
+    this.y += boxHeight + 20;
+  }
+  
+  addRiskAnalysis(riskAnalysis: RiskAnalysis) {
+      const { risk_score, risk_level, summary, key_risk_factors } = riskAnalysis;
+      const riskColor = risk_score > 75 ? COLORS.RED : risk_score > 50 ? COLORS.YELLOW : COLORS.GREEN;
+      
+      this.addPageIfNeeded(80);
+      
+      this.doc.setFontSize(FONT_SIZES.H3);
+      this.doc.setTextColor(riskColor);
+      this.doc.text(`Risk Score: ${risk_score}/100 (${risk_level})`, this.margin, this.y);
+      this.y += 20;
+      
+      this.addBodyText(summary);
+      
+      this.doc.setFontSize(FONT_SIZES.BODY);
+      this.doc.setFont('helvetica', 'bold');
+      this.doc.text('Key Risk Factors:', this.margin, this.y);
+      this.y += 15;
+      
+      this.doc.setFont('helvetica', 'normal');
+      key_risk_factors.forEach(factor => {
+          this.addBodyText(`• ${factor}`);
+      });
+  }
+
+   addDebateLog(critique: ChiefAnalystCritique & { refined_answer?: string }) {
+        this.addPageIfNeeded(100);
+        this.addSubsectionTitle("Identified Conflict");
+        this.addBodyText(critique.conflict_summary);
+        this.addSubsectionTitle("Remediation Question Sent To Specialist");
+        this.addBodyText(`To the ${critique.target_agent} Agent: "${critique.remediation_question}"`);
+        if (critique.refined_answer) {
+            this.addSubsectionTitle("Refined Answer from Specialist");
+            this.addCodeBlock(critique.refined_answer, '');
+        }
+        this.addSpacer(20);
+    }
 
   addSpacer(height: number) {
     this.addPageIfNeeded(height);
@@ -234,9 +329,6 @@ export const generateMethodologyPdf = async (
     builder.save(filename);
 };
 
-
-// NOTE: The implementation for generateAnalysisPdf is assumed to exist as it was not fully provided.
-// This ensures that existing functionality is not broken.
 export const generateAnalysisPdf = async (
   analysisResult: StockAnalysis,
   esgAnalysis: EsgAnalysis | null,
@@ -248,9 +340,54 @@ export const generateAnalysisPdf = async (
   corporateCalendarAnalysis: CorporateCalendarAnalysis | null,
   currencySymbol: string
 ) => {
-    // This is a placeholder for the original function.
-    console.log("generateAnalysisPdf called, but implementation was not provided in the user's file. Exporting a blank PDF to avoid breaking the UI.");
-    const doc = new jsPDF();
-    doc.text("Analysis PDF generation is not fully implemented in the provided file.", 10, 10);
-    doc.save(`Analysis_${analysisResult.stock_symbol}.pdf`);
+    const builder = new PdfBuilder(`Financial Analysis Report (${analysisResult.stock_symbol})`);
+    builder.buildTitlePage('Financial Analysis Report', analysisResult.share_name || analysisResult.stock_symbol);
+    
+    // --- Key Insights & Risk ---
+    builder.addSectionTitle('Key Insights & Recommendation');
+    builder.addKeyInsightsGrid(analysisResult, currencySymbol);
+    if (analysisResult.risk_analysis) {
+        builder.addRiskAnalysis(analysisResult.risk_analysis);
+    }
+    builder.addSpacer(20);
+
+    // --- Investment Thesis ---
+    builder.addSectionTitle('Investment Thesis & Justification');
+    builder.addSubsectionTitle('Overall Recommendation');
+    builder.addBodyText(analysisResult.justification.overall_recommendation);
+    builder.addSubsectionTitle('Confidence Rationale');
+    builder.addBodyText(analysisResult.justification.confidence_rationale);
+    builder.addSubsectionTitle('Nutshell Summary');
+    builder.addBodyText(analysisResult.justification.nutshell_summary);
+    builder.addSpacer(20);
+    
+    // --- Financials ---
+    builder.addSectionTitle('Financial Analysis');
+    builder.addSubsectionTitle('Profit & Loss Summary');
+    builder.addBodyText(analysisResult.justification.profit_and_loss_summary);
+    builder.addSubsectionTitle('Balance Sheet Summary');
+    builder.addBodyText(analysisResult.justification.balance_sheet_summary);
+    builder.addSubsectionTitle('Financial Ratios Summary');
+    builder.addBodyText(analysisResult.justification.financial_ratios_summary);
+    builder.addSpacer(20);
+
+    // --- Contextual Summaries from Agents ---
+    builder.addSectionTitle('Context from Specialist Agents');
+    if (esgAnalysis) { builder.addSubsectionTitle('ESG Summary'); builder.addBodyText(analysisResult.contextual_inputs.esg_summary); }
+    if (macroAnalysis) { builder.addSubsectionTitle('Macroeconomic Summary'); builder.addBodyText(analysisResult.contextual_inputs.macroeconomic_summary); }
+    if (newsAnalysis) { builder.addSubsectionTitle('News Summary'); builder.addBodyText(analysisResult.contextual_inputs.news_summary); }
+    if (leadershipAnalysis) { builder.addSubsectionTitle('Leadership Summary'); builder.addBodyText(analysisResult.contextual_inputs.leadership_summary); }
+    if (competitiveAnalysis) { builder.addSubsectionTitle('Competitive Summary'); builder.addBodyText(analysisResult.contextual_inputs.competitive_summary); }
+    if (sectorAnalysis) { builder.addSubsectionTitle('Sector Summary'); builder.addBodyText(analysisResult.contextual_inputs.sector_summary); }
+    if (corporateCalendarAnalysis) { builder.addSubsectionTitle('Corporate Calendar Summary'); builder.addBodyText(analysisResult.contextual_inputs.corporate_calendar_summary); }
+    builder.addSpacer(20);
+    
+    // --- Debate Log ---
+    if (analysisResult.chiefAnalystCritique) {
+        builder.addSectionTitle("Chief Analyst's Debate Log");
+        builder.addDebateLog(analysisResult.chiefAnalystCritique);
+    }
+    
+    const filename = `Analysis_${analysisResult.stock_symbol}_${getFilenameTimestamp()}.pdf`;
+    builder.save(filename);
 };

@@ -575,20 +575,6 @@ const App: React.FC = () => {
         );
     }
 
-    const allSources = useMemo(() => {
-      const sources = new Set<GroundingSource>();
-      [
-        esgAnalysis, macroAnalysis, newsAnalysis, leadershipAnalysis,
-        competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, analysisResult
-      ].forEach(item => {
-        item?.sources?.forEach(source => sources.add(source));
-      });
-      return Array.from(sources);
-    }, [
-      esgAnalysis, macroAnalysis, newsAnalysis, leadershipAnalysis,
-      competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, analysisResult
-    ]);
-
     return (
         <div className="animate-fade-in">
           <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 mb-6">
