@@ -1,0 +1,6 @@
+{
+  "name": "Agentic Financial Analyst New Version",
+  "description": "An agentic AI application that provides comprehensive stock analysis for Indian markets using multiple AI agents. The application now includes a full authentication system with user roles (free/premium) to manage access to advanced features.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
