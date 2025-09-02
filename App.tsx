@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource } from './types';
 import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getNewsAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getFinancialData } from './services/geminiService';
-import { generateAnalysisPdf } from './services/pdfService';
+import { generateAnalysisPdf, generateMethodologyPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
 import { Breadcrumbs } from './components/Breadcrumbs';
 import { ExportButton } from './components/ExportButton';
@@ -13,6 +13,10 @@ import { NutshellSummary } from './components/NutshellSummary';
 import { AnalysisConfiguration } from './components/AnalysisConfiguration';
 import { agentConfigurations, AgentKey } from './components/AnalysisConfiguration';
 import * as calculator from './services/calculatorService';
+import { useAuth } from './contexts/AuthContext';
+import { LoginPage } from './components/auth/LoginPage';
+import { FullPageLoader } from './components/FullPageLoader';
+
 
 const LOCAL_STORAGE_KEY = 'agentic_financial_analyst_custom_stocks';
 export const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
@@ -60,7 +64,9 @@ const getSummaryFromAgentResult = (agentKey: AgentKey, result: any): string => {
     }
 };
 
-const Dashboard: React.FC = () => {
+const App: React.FC = () => {
+  const { user, loading } = useAuth();
+  
   // Main Analysis State
   const [analysisResult, setAnalysisResult] = useState<StockAnalysis | null>(null);
   const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>('IDLE');
@@ -137,7 +143,14 @@ const Dashboard: React.FC = () => {
   };
   
   const updateExecutionLog = (id: number, updates: Partial<ExecutionStep>) => {
-      setExecutionLog(prev => prev.map(step => step.id === id ? { ...step, ...updates } : step));
+      setExecutionLog(prev => {
+          const newLog = [...prev];
+          const stepIndex = newLog.findIndex(step => step.id === id);
+          if (stepIndex > -1) {
+              newLog[stepIndex] = { ...newLog[stepIndex], ...updates };
+          }
+          return newLog;
+      });
   };
 
 
@@ -562,6 +575,20 @@ const Dashboard: React.FC = () => {
         );
     }
 
+    const allSources = useMemo(() => {
+      const sources = new Set<GroundingSource>();
+      [
+        esgAnalysis, macroAnalysis, newsAnalysis, leadershipAnalysis,
+        competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, analysisResult
+      ].forEach(item => {
+        item?.sources?.forEach(source => sources.add(source));
+      });
+      return Array.from(sources);
+    }, [
+      esgAnalysis, macroAnalysis, newsAnalysis, leadershipAnalysis,
+      competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, analysisResult
+    ]);
+
     return (
         <div className="animate-fade-in">
           <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 mb-6">
@@ -600,6 +627,14 @@ const Dashboard: React.FC = () => {
     );
   };
   
+  if (loading) {
+      return <FullPageLoader />;
+  }
+  
+  if (!user) {
+      return <LoginPage />;
+  }
+
   return (
     <ErrorBoundary>
       <div className="bg-gray-50 min-h-screen dark:bg-slate-900">
@@ -614,4 +649,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard;
+export default App;
