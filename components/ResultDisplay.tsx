@@ -1,5 +1,5 @@
 import React from 'react';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CalculatedMetric } from '../types';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CalculatedMetric, CompetitiveAnalysis } from '../types';
 import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, ScaleIcon, DocumentTextIcon, LightBulbIcon, ExclamationTriangleIcon, LinkIcon, SparklesIcon, LeafIcon, GlobeAltIcon, ClockIcon, UserGroupIcon, NewspaperIcon, InformationCircleIcon, ClipboardDocumentListIcon } from './IconComponents';
 import { Tooltip } from './Tooltip';
 import { VisualGauge } from './VisualGauge';
@@ -16,6 +16,7 @@ interface ResultDisplayProps {
   macroAnalysis: MacroAnalysis | null;
   newsAnalysis: NewsAnalysis | null;
   leadershipAnalysis: LeadershipAnalysis | null;
+  competitiveAnalysis: CompetitiveAnalysis | null;
   currencySymbol: string;
   calculatedMetrics: Record<string, CalculatedMetric>;
 }
@@ -50,7 +51,11 @@ const getConfidenceColor = (confidence: string) => {
 
 
 const formatPrice = (price: number | null, currencySymbol: string) => {
-    return price === null ? 'N/A' : `${currencySymbol}${price.toFixed(2)}`;
+    if (price === null || isNaN(price)) return 'N/A';
+    // The Rupee symbol '₹' can render incorrectly in jsPDF's default fonts.
+    // While this component is React, we apply the same logic for consistency with the PDF export.
+    const symbolToShow = currencySymbol === '₹' ? '₹' : currencySymbol; // Keep it for display
+    return `${symbolToShow}${price.toFixed(2)}`;
 }
 
 const formatDate = (dateString?: string) => {
@@ -90,17 +95,20 @@ const KeyInsight: React.FC<{ title: string; value: React.ReactNode; sentiment?: 
 );
 
 
-const DetailSection: React.FC<{ title: string, content: string | null | undefined, icon?: React.ReactNode }> = ({ title, content, icon }) => {
-    if (!content) return null;
+const DetailSection: React.FC<{ title: string, content?: string | null | undefined, icon?: React.ReactNode, children?: React.ReactNode }> = ({ title, content, icon, children }) => {
+    if (!content && !children) return null;
     return (
         <div className="mt-6">
             <h3 className="flex items-center text-xl font-bold text-blue-600 dark:text-blue-400 mb-3">
                 <span className="mr-2.5">{icon}</span>
                 {title}
             </h3>
-            <div className="prose prose-sm text-slate-600 max-w-none space-y-3 leading-relaxed whitespace-pre-line dark:text-slate-300">
-                <p>{content}</p>
-            </div>
+            {content && (
+                <div className="prose prose-sm text-slate-600 max-w-none space-y-3 leading-relaxed whitespace-pre-line dark:text-slate-300">
+                    <p>{content}</p>
+                </div>
+            )}
+            {children}
         </div>
     );
 };
@@ -130,10 +138,86 @@ const PriceChange: React.FC<{ change: number | null; percentage: string | null; 
     );
 };
 
+const parseMetricValue = (metric: any): number | null => {
+    if (metric === null || metric === undefined) return null;
+    if (typeof metric === 'number' && !isNaN(metric)) return metric;
+    
+    let valueSource = metric;
+    if (typeof metric === 'object' && 'value' in metric) {
+        valueSource = metric.value;
+    }
+    
+    if (valueSource === null || valueSource === undefined) return null;
+    
+    const strValue = String(valueSource);
+    if (strValue === 'N/A') return null;
+    
+    const cleaned = strValue.replace(/[^\d.-]/g, '');
+    if (cleaned === '') return null;
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysis, macroAnalysis, newsAnalysis, leadershipAnalysis, currencySymbol, calculatedMetrics }) => {
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+};
+
+const FinancialRatioChart: React.FC<{
+  label: string;
+  companyValue: number | null;
+  industryValue: number | null;
+  isLowerBetter?: boolean;
+}> = ({ label, companyValue, industryValue, isLowerBetter = false }) => {
+    const hasData = companyValue !== null && industryValue !== null;
+    const maxValue = hasData ? Math.max(Math.abs(companyValue), Math.abs(industryValue), 0) * 1.25 : 1;
+    const companyWidth = hasData ? (Math.abs(companyValue) / maxValue) * 100 : 0;
+    const industryWidth = hasData ? (Math.abs(industryValue) / maxValue) * 100 : 0;
+    
+    let companyColor = 'bg-blue-500';
+    if(hasData) {
+        if (isLowerBetter) {
+            companyColor = companyValue < industryValue ? 'bg-green-500' : 'bg-amber-500';
+        } else { // higher is better (e.g. ROE)
+            companyColor = companyValue > industryValue ? 'bg-green-500' : 'bg-amber-500';
+        }
+    }
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-1 text-sm">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{label}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Company vs. Industry Avg.</span>
+            </div>
+            <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                    <span className="w-16 text-xs text-right font-medium text-slate-600 dark:text-slate-400">You</span>
+                    <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-4">
+                        <div className={`h-4 rounded-full transition-all duration-500 ${companyColor}`} style={{ width: `${companyWidth}%` }}></div>
+                    </div>
+                    <span className="w-12 text-left text-sm font-bold text-slate-800 dark:text-slate-200">{companyValue?.toFixed(2) ?? 'N/A'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="w-16 text-xs text-right font-medium text-slate-600 dark:text-slate-400">Industry</span>
+                    <div className="flex-1 bg-gray-200 dark:bg-slate-700 rounded-full h-4">
+                        <div className="h-4 rounded-full bg-slate-400 dark:bg-slate-500 transition-all duration-500" style={{ width: `${industryWidth}%` }}></div>
+                    </div>
+                    <span className="w-12 text-left text-sm font-bold text-slate-800 dark:text-slate-200">{industryValue?.toFixed(2) ?? 'N/A'}</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysis, macroAnalysis, newsAnalysis, leadershipAnalysis, competitiveAnalysis, currencySymbol, calculatedMetrics }) => {
   const formattedDate = formatDate(result.last_updated);
   const sentimentValue = sentimentMap[result.overall_sentiment];
+
+  const companyPERatio = calculatedMetrics.peRatio?.value;
+  const industryPERatio = parseMetricValue(competitiveAnalysis?.industry_average_metrics?.pe_ratio);
+  const companyPBRatio = calculatedMetrics.pbRatio?.value;
+  const industryPBRatio = parseMetricValue(competitiveAnalysis?.industry_average_metrics?.pb_ratio);
+  const companyDebtToEquity = calculatedMetrics.debtToEquity?.value;
+  const industryDebtToEquity = parseMetricValue(competitiveAnalysis?.industry_average_metrics?.debt_to_equity);
+  const companyROE = calculatedMetrics.roe?.value;
+  const industryROE = parseMetricValue(competitiveAnalysis?.industry_average_metrics?.roe);
   
   const TABS = {
       OVERVIEW_RISK: 'Overview & Risk',
@@ -245,8 +329,14 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                 <div className="space-y-6">
                     <DetailSection title="Profit & Loss Analysis" content={result.justification.profit_and_loss_summary} icon={<ClipboardDocumentListIcon />} />
                     <DetailSection title="Balance Sheet Analysis" content={result.justification.balance_sheet_summary} icon={<ClipboardDocumentListIcon />} />
-                    <DetailSection title="Cash Flow Analysis" content={result.justification.cash_flow_summary} icon={<ClipboardDocumentListIcon />} />
-                    <DetailSection title="Financial Ratios" content={result.justification.financial_ratios_summary} icon={<ScaleIcon />} />
+                    <DetailSection title="Financial Ratios" icon={<ScaleIcon />}>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <FinancialRatioChart label="P/E Ratio" companyValue={companyPERatio} industryValue={industryPERatio} isLowerBetter={true} />
+                            <FinancialRatioChart label="P/B Ratio" companyValue={companyPBRatio} industryValue={industryPBRatio} isLowerBetter={true} />
+                            <FinancialRatioChart label="Debt/Equity" companyValue={companyDebtToEquity} industryValue={industryDebtToEquity} isLowerBetter={true} />
+                            <FinancialRatioChart label="Return on Equity (%)" companyValue={companyROE} industryValue={industryROE} />
+                        </div>
+                    </DetailSection>
                     <DetailSection title="Ownership Summary" content={result.justification.ownership_summary} icon={<UserGroupIcon />} />
                     <DetailSection title="Technical Summary" content={result.justification.technical_summary} icon={result.justification.technical_summary?.toLowerCase().includes('bullish') || result.justification.technical_summary?.toLowerCase().includes('uptrend') ? <ArrowTrendingUpIcon/> : <ArrowTrendingDownIcon/>} />
                 </div>

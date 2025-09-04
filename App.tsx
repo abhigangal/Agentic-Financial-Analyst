@@ -104,6 +104,7 @@ const App: React.FC = () => {
   // Market State
   const [selectedMarketId, setSelectedMarketId] = useState<string>('IN');
   const activeMarketConfig = useMemo(() => marketConfigs[selectedMarketId], [selectedMarketId]);
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(activeMarketConfig.currencySymbol);
 
   // UI State
   const [customStockList, setCustomStockList] = useState<string[]>(() => {
@@ -161,6 +162,15 @@ const App: React.FC = () => {
       console.error("Failed to save custom stock list to localStorage", e);
     }
   }, [customStockList]);
+
+  useEffect(() => {
+    // When market changes, update the default currency
+    setSelectedCurrency(activeMarketConfig.currencySymbol);
+  }, [activeMarketConfig]);
+
+  const handleCurrencyChange = (symbol: string) => {
+    setSelectedCurrency(symbol);
+  };
   
   const allPredefinedSymbols = useMemo(() => new Set(activeMarketConfig.stockCategories.flatMap(c => c.symbols)), [activeMarketConfig]);
 
@@ -515,7 +525,7 @@ const App: React.FC = () => {
         sectorAnalysis,
         corporateCalendarAnalysis,
         marketSentimentAnalysis,
-        activeMarketConfig.currencySymbol
+        selectedCurrency
       );
     } catch (error) {
       console.error("PDF Export failed", error);
@@ -615,7 +625,7 @@ const App: React.FC = () => {
                   sectorAnalysis={sectorAnalysis}
                   corporateCalendarAnalysis={corporateCalendarAnalysis}
                   marketSentimentAnalysis={marketSentimentAnalysis}
-                  currencySymbol={activeMarketConfig.currencySymbol}
+                  currencySymbol={selectedCurrency}
                   onRetry={() => enabledAgents && runAnalysis(currentSymbol, enabledAgents)}
                   enabledAgents={enabledAgents}
                   analysisPhase={analysisPhase}
@@ -633,7 +643,12 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="bg-gray-50 min-h-screen dark:bg-slate-900">
-        <Header selectedMarketId={selectedMarketId} onMarketChange={handleMarketChange} />
+        <Header 
+          selectedMarketId={selectedMarketId} 
+          onMarketChange={handleMarketChange} 
+          selectedCurrency={selectedCurrency}
+          onCurrencyChange={handleCurrencyChange}
+        />
         <div className="container mx-auto px-2 sm:px-4 md:px-6 py-6">
             <Breadcrumbs categories={stockCategoriesWithCustom} currentSymbol={currentSymbol} onNavigateHome={handleNavigateHome} />
             <NutshellSummary summary={analysisResult?.justification.nutshell_summary} />

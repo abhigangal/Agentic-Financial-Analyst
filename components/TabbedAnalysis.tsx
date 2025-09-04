@@ -203,8 +203,6 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                          <FinancialAdvisorLoader
                             stockSymbol={currentSymbol}
                             analysisPhase={analysisPhase}
-                            agentStatuses={agentStatuses}
-                            enabledAgents={enabledAgents}
                             executionLog={executionLog}
                         />
                     ) : analysisResult ? (
@@ -215,6 +213,7 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                                 macroAnalysis={props.macroAnalysis}
                                 newsAnalysis={props.newsAnalysis}
                                 leadershipAnalysis={props.leadershipAnalysis}
+                                competitiveAnalysis={props.competitiveAnalysis}
                                 currencySymbol={currencySymbol}
                                 calculatedMetrics={calculatedMetrics}
                             />

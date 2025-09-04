@@ -36,32 +36,6 @@
       .animate-fade-in-fast {
         animation: fadeIn 0.2s ease-out forwards;
       }
-      @keyframes pulse-node {
-        0%, 100% {
-          stroke-opacity: 0.2;
-        }
-        50% {
-          stroke-opacity: 0.7;
-        }
-      }
-      .animate-pulse-node {
-        animation: pulse-node 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-      }
-      @keyframes pulse-central-node {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.03); opacity: 0.95; }
-      }
-      .animate-pulse-central-node {
-        animation: pulse-central-node 2.5s ease-in-out infinite;
-        transform-origin: center;
-      }
-      @keyframes shimmer {
-          from { stroke-dashoffset: 50; }
-          to { stroke-dashoffset: 0; }
-      }
-      .animate-shimmer {
-          animation: shimmer 1s linear infinite;
-      }
       .scrollbar-hide::-webkit-scrollbar {
         display: none;
       }
@@ -82,6 +56,58 @@
       }
       .animate-fill-bar {
           animation: fill-bar 0.7s ease-in-out forwards;
+      }
+      @keyframes background-bubbles {
+        0% { transform: translateY(0) scale(1); opacity: 0.3; }
+        100% { transform: translateY(-100vh) scale(1.5); opacity: 0; }
+      }
+
+      /* New animations for the agent workflow scenes */
+      @keyframes scene-fade-in {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-scene-fade-in {
+        animation: scene-fade-in 0.6s ease-out forwards;
+      }
+
+      @keyframes agent-slide-in-left {
+        from { transform: translateX(-60px); opacity: 0; }
+        to { transform: translateX(0px); opacity: 1; }
+      }
+      .animate-agent-slide-in-left {
+        animation: agent-slide-in-left 0.8s ease-out forwards;
+      }
+
+      @keyframes agent-slide-in-right {
+        from { transform: translateX(60px); opacity: 0; }
+        to { transform: translateX(0px); opacity: 1; }
+      }
+      .animate-agent-slide-in-right {
+        animation: agent-slide-in-right 0.8s ease-out forwards;
+      }
+      
+      @keyframes light-flicker {
+        0%, 100% { opacity: 0.8; }
+        50% { opacity: 1; }
+      }
+      .animate-light-flicker {
+        animation: light-flicker 1.5s ease-in-out infinite;
+      }
+      
+      @keyframes draw-checkmark {
+        to { stroke-dashoffset: 0; }
+      }
+      .animate-draw-checkmark {
+        animation: draw-checkmark 0.5s ease-out 0.3s forwards;
+      }
+      
+      @keyframes glow {
+        0%, 100% { filter: drop-shadow(0 0 5px #4ade80); }
+        50% { filter: drop-shadow(0 0 15px #4ade80); }
+      }
+      .animate-glow {
+        animation: glow 1.5s ease-in-out infinite;
       }
     </style>
   <script type="importmap">

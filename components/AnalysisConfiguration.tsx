@@ -12,14 +12,14 @@ interface AgentConfig {
 }
 
 export const agentConfigurations: AgentConfig[] = [
-    { key: 'esg', name: 'ESG Profile', description: 'Environmental, Social, and Governance factors.', icon: <LeafIcon className="h-6 w-6 text-green-500" /> },
-    { key: 'macro', name: 'Macro Trends', description: 'Broad economic factors affecting the market.', icon: <GlobeAltIcon className="h-6 w-6 text-sky-500" /> },
-    { key: 'news', name: 'Recent News', description: 'Latest news and sentiment analysis.', icon: <NewspaperIcon className="h-6 w-6 text-blue-500" /> },
-    { key: 'leadership', name: 'Leadership Team', description: 'Analysis of the executive team and board.', icon: <UserGroupIcon className="h-6 w-6 text-purple-500" /> },
-    { key: 'competitive', name: 'Competition', description: 'Competitive landscape and rival analysis.', icon: <TrophyIcon className="h-6 w-6 text-amber-500" /> },
-    { key: 'sector', name: 'Sector Outlook', description: 'Tailwinds and headwinds for the industry.', icon: <BuildingOfficeIcon className="h-6 w-6 text-indigo-500" /> },
-    { key: 'calendar', name: 'Corp. Calendar', description: 'Upcoming corporate events and dates.', icon: <CalendarDaysIcon className="h-6 w-6 text-rose-500" /> },
-    { key: 'sentiment', name: 'Market Sentiment', description: 'Analysis of market sentiment and major holders.', icon: <ChatBubbleLeftRightIcon className="h-6 w-6 text-teal-500" /> }
+    { key: 'esg', name: 'ESG Profile', description: 'Analyzes Environmental, Social, and Governance factors.', icon: <LeafIcon className="h-6 w-6 text-green-500" /> },
+    { key: 'macro', name: 'Macro Trends', description: 'Assesses broad economic factors affecting the market.', icon: <GlobeAltIcon className="h-6 w-6 text-sky-500" /> },
+    { key: 'news', name: 'Recent News', description: 'Gathers the latest news and performs sentiment analysis.', icon: <NewspaperIcon className="h-6 w-6 text-blue-500" /> },
+    { key: 'leadership', name: 'Leadership Team', description: 'Evaluates the executive team, board, and recent changes.', icon: <UserGroupIcon className="h-6 w-6 text-purple-500" /> },
+    { key: 'competitive', name: 'Competition', description: 'Analyzes the competitive landscape and key rivals.', icon: <TrophyIcon className="h-6 w-6 text-amber-500" /> },
+    { key: 'sector', name: 'Sector Outlook', description: 'Identifies tailwinds and headwinds for the industry.', icon: <BuildingOfficeIcon className="h-6 w-6 text-indigo-500" /> },
+    { key: 'calendar', name: 'Corp. Calendar', description: 'Finds upcoming corporate events, earnings, and dates.', icon: <CalendarDaysIcon className="h-6 w-6 text-rose-500" /> },
+    { key: 'sentiment', name: 'Market Sentiment', description: 'Gauges overall market sentiment and major holders.', icon: <ChatBubbleLeftRightIcon className="h-6 w-6 text-teal-500" /> }
 ];
 
 const allAgentsEnabled = agentConfigurations.reduce((acc, agent) => {
@@ -77,24 +77,18 @@ export const AnalysisConfiguration: React.FC<AnalysisConfigurationProps> = ({ st
 
             <div className="space-y-3">
                 {agentConfigurations.map(agent => (
-                    <div key={agent.key} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-slate-800 dark:border-slate-700 gap-4">
-                        <div className="flex items-center gap-4">
-                            {agent.icon}
-                            <div>
-                                <h3 className="font-semibold text-slate-800 dark:text-slate-100">{agent.name}</h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">{agent.description}</p>
+                    <div key={agent.key} className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4 flex-grow">
+                                {agent.icon}
+                                <div className="flex-grow">
+                                    <h3 className="font-semibold text-slate-800 dark:text-slate-100">{agent.name}</h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{agent.description}</p>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-4 self-end sm:self-center">
-                            <div className="flex items-center gap-2 text-sm">
-                                <DatabaseIcon className="h-4 w-4 text-slate-400" />
-                                {cacheStatus(stockSymbol) === 'Fresh' ? (
-                                    <span className="font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 px-2 py-0.5 rounded-full text-xs">Fresh</span>
-                                ) : (
-                                    <span className="font-medium text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-600 px-2 py-0.5 rounded-full text-xs">Stale</span>
-                                )}
+                            <div className="flex items-center gap-4 flex-shrink-0">
+                                <ToggleSwitch enabled={enabledAgents[agent.key]} onChange={() => handleToggle(agent.key)} />
                             </div>
-                            <ToggleSwitch enabled={enabledAgents[agent.key]} onChange={() => handleToggle(agent.key)} />
                         </div>
                     </div>
                 ))}
