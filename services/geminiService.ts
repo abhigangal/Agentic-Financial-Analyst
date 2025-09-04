@@ -1,6 +1,8 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric } from '../types';
-import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, NEWS_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, FINANCIAL_DATA_EXTRACTOR_AGENT_PROMPT } from '../constants';
+// Fix: Import MarketSentimentAnalysis type.
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, MarketSentimentAnalysis } from '../types';
+// Fix: Import MARKET_SENTIMENT_AGENT_PROMPT.
+import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, NEWS_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, FINANCIAL_DATA_EXTRACTOR_AGENT_PROMPT, MARKET_SENTIMENT_AGENT_PROMPT } from '../constants';
 
 if (!process.env.API_KEY) {
   // The error handling in the app will catch the error from the SDK
@@ -12,7 +14,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 
 async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoogleSearch: boolean = false, isJsonOutput: boolean = true): Promise<T> {
-    const maxRetries = 1;
+    const maxRetries = 3;
     let attempt = 0;
 
     while (attempt <= maxRetries) {
@@ -82,27 +84,31 @@ async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoo
 
         } catch (error) {
             const agentName = systemInstruction.substring(6, systemInstruction.indexOf('.')).trim();
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            const isRetriable = errorMessage.includes("503") || 
-                                errorMessage.includes("UNAVAILABLE") || 
+            const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase();
+            const isRetriable = errorMessage.includes("503") ||
+                                errorMessage.includes("500") ||
+                                errorMessage.includes("504") ||
+                                errorMessage.includes("unavailable") || 
                                 errorMessage.includes("overloaded") || 
-                                errorMessage.includes("RESOURCE_EXHAUSTED") || 
+                                errorMessage.includes("resource_exhausted") || 
                                 errorMessage.includes("quota");
 
             if (isRetriable && attempt < maxRetries) {
                 attempt++;
-                console.warn(`[Gemini Retry] Agent "${agentName}" failed with a retriable error. Retrying (attempt ${attempt} of ${maxRetries})...`);
-                await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Simple linear backoff
+                // Exponential backoff with jitter
+                const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+                console.warn(`[Gemini Retry] Agent "${agentName}" failed with a retriable error. Retrying in ${Math.round(delay/1000)}s (attempt ${attempt} of ${maxRetries})...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
                 continue; // Retry the loop
             }
 
             // Non-retriable error or max retries reached, throw a user-friendly error
             console.error(`Error running agent "${agentName}" after ${attempt + 1} attempt(s):`, error);
             
-            if (errorMessage.includes("API key not valid") || errorMessage.includes("API key is missing")) {
+            if (errorMessage.includes("api key not valid") || errorMessage.includes("api key is missing")) {
                 throw new Error("The API key is invalid or not configured. Please check your environment setup.");
             }
-            if (errorMessage.includes("400 Bad Request")) {
+            if (errorMessage.includes("400 bad request")) {
                 throw new Error("The request to the AI service was malformed. This may be due to an internal prompt or schema issue.");
             }
             if (errorMessage.includes("is unsupported")) {
@@ -258,6 +264,22 @@ export async function getCorporateCalendarAnalysis(stockSymbol: string, marketNa
     }
 }
 
+// Fix: Add and export the getMarketSentimentAnalysis function.
+export async function getMarketSentimentAnalysis(stockSymbol: string, marketName: string, overridePrompt?: string): Promise<MarketSentimentAnalysis> {
+    let userPrompt = `Please perform a market sentiment analysis for the company with the stock symbol: ${stockSymbol}, which trades in the ${marketName} market.`;
+    if (overridePrompt) {
+        userPrompt += `\n\nCRITICAL REFINEMENT QUESTION: You MUST answer this specific question in your analysis: "${overridePrompt}"`;
+    }
+    try {
+        const systemInstruction = MARKET_SENTIMENT_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
+        const result = await runAgent<MarketSentimentAnalysis>(systemInstruction, userPrompt, true);
+        return result;
+    } catch (e) {
+         console.error(e);
+         throw new Error(e instanceof Error ? e.message : `Market sentiment analysis failed for ${stockSymbol}.`);
+    }
+}
+
 export async function getFinancialData(screenerUrl: string, screenerName: string): Promise<RawFinancials> {
     const userPrompt = `Please extract financial data for the company at URL: ${screenerUrl}`;
     try {
@@ -384,7 +406,8 @@ export async function getStockAnalysis(
             leadership_summary: rawData.contextual_inputs?.leadership_summary || context.leadership,
             competitive_summary: rawData.contextual_inputs?.competitive_summary || context.competitive,
             sector_summary: rawData.contextual_inputs?.sector_summary || context.sector,
-            corporate_calendar_summary: rawData.contextual_inputs?.corporate_calendar_summary || context.calendar
+            corporate_calendar_summary: rawData.contextual_inputs?.corporate_calendar_summary || context.calendar,
+            market_sentiment_summary: rawData.contextual_inputs?.market_sentiment_summary || context.sentiment,
         },
         na_justifications: rawData.na_justifications || {}
     };

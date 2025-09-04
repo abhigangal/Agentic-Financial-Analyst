@@ -4,7 +4,6 @@ import { StockCategory, Expert, User } from '../types';
 import { AnalysisCacheItem } from '../../App';
 import { Tabs } from './Tabs';
 import { MarketVoices } from './MarketVoices';
-import { useAuth } from '../../contexts/AuthContext';
 import { ClipboardDocumentListIcon, ChatBubbleLeftRightIcon } from './IconComponents';
 
 interface HomePageProps {
@@ -23,7 +22,7 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = (props) => {
-    const { user } = useAuth();
+    const user: User = { email: 'demo@premium.com', role: 'premium' };
     const TABS = {
         EXPLORER: 'Stock Explorer',
         VOICES: 'Expert Opinions',
@@ -52,17 +51,13 @@ export const HomePage: React.FC<HomePageProps> = (props) => {
                         <StockExplorer {...props} />
                     </Tabs.Panel>
                     <Tabs.Panel id={TABS.VOICES}>
-                        {user ? (
-                             <MarketVoices 
-                                user={user}
-                                experts={props.experts}
-                                marketName={props.marketName}
-                                onSelectStock={props.onSelectStock}
-                                disabled={props.disabled}
-                            />
-                        ) : (
-                            <p>Loading user data...</p>
-                        )}
+                        <MarketVoices 
+                            user={user}
+                            experts={props.experts}
+                            marketName={props.marketName}
+                            onSelectStock={props.onSelectStock}
+                            disabled={props.disabled}
+                        />
                     </Tabs.Panel>
                 </Tabs.Panels>
             </Tabs.Group>

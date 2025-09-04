@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ExecutionStep, ChiefAnalystCritique } from '../types';
+import autoTable from 'jspdf-autotable';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ExecutionStep, ChiefAnalystCritique, MarketSentimentAnalysis, FinancialMetrics } from '../types';
 
 // --- Color and Font Definitions for a Professional Theme ---
 const COLORS = {
@@ -13,7 +14,8 @@ const COLORS = {
     WHITE: '#FFFFFF',
     RED: '#DC2626', // red-600
     GREEN: '#16A34A', // green-600
-    YELLOW: '#EAB308', // yellow-500
+    YELLOW: '#CA8A04', // yellow-600
+    ORANGE: '#EA580C', // orange-600
 };
 
 const FONT_SIZES = {
@@ -35,10 +37,25 @@ const formatPrice = (price: number | null, currencySymbol: string): string => {
     return `${currencySymbol}${price.toFixed(2)}`;
 };
 
-const getMetricValue = (metric: CalculatedMetric | number | null): number | null => {
-    if (typeof metric === 'number') return metric;
-    if (metric && typeof metric === 'object' && 'value' in metric) return metric.value;
-    return null;
+const getMetricValue = (metric: CalculatedMetric | number | string | null): string => {
+    if (metric === null || metric === undefined) return 'N/A';
+    if (typeof metric === 'string') return metric;
+    if (typeof metric === 'number') return metric.toFixed(2);
+    if (metric && typeof metric === 'object' && 'value' in metric) {
+        return metric.value !== null ? metric.value.toFixed(2) : 'N/A';
+    }
+    return 'N/A';
+};
+
+const formatDate = (dateString?: string): string | null => {
+    if (!dateString) return null;
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return null;
+        return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch (e) {
+        return null;
+    }
 };
 
 class PdfBuilder {
@@ -90,7 +107,7 @@ class PdfBuilder {
   }
 
   buildTitlePage(mainTitle: string, subTitle: string) {
-    this.y = this.pageHeight / 4;
+    this.y = this.pageHeight / 3;
     
     this.doc.setFontSize(32);
     this.doc.setFont('helvetica', 'bold');
@@ -129,7 +146,7 @@ class PdfBuilder {
       this.y += 18;
   }
   
-  addBodyText(text: string | null | undefined) {
+  addBodyText(text: string | null | undefined, options: { isPreformatted?: boolean } = {}) {
     const sanitizedText = String(text || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
     if (!sanitizedText) return;
 
@@ -141,6 +158,65 @@ class PdfBuilder {
     this.doc.text(lines, this.margin, this.y);
     this.y += lines.length * 12 + 10;
   }
+
+  addBulletedList(title: string, items: string[] | undefined, iconPrefix: 'positive' | 'negative' | 'neutral' = 'neutral') {
+      if (!items || items.length === 0) return;
+      this.addPageIfNeeded(20 + items.length * 15);
+      
+      const colors = {
+          positive: COLORS.GREEN,
+          negative: COLORS.RED,
+          neutral: COLORS.PRIMARY_TEXT
+      };
+      
+      this.doc.setFontSize(FONT_SIZES.BODY);
+      this.doc.setFont('helvetica', 'bold');
+      this.doc.setTextColor(colors[iconPrefix]);
+      this.doc.text(title, this.margin, this.y);
+      this.y += 15;
+
+      items.forEach(item => {
+          this.doc.setFont('helvetica', 'normal');
+          this.doc.setTextColor(COLORS.PRIMARY_TEXT);
+          const lines = this.doc.splitTextToSize(`• ${item}`, this.contentWidth - 10);
+          this.addPageIfNeeded(lines.length * 12);
+          this.doc.text(lines, this.margin + 10, this.y);
+          this.y += lines.length * 12;
+      });
+      this.addSpacer(10);
+  }
+  
+  addKeyValueGrid(data: Record<string, string | null | undefined>) {
+    const entries = Object.entries(data).filter(([, value]) => value);
+    if (entries.length === 0) return;
+
+    const boxHeight = 40;
+    const boxWidth = this.contentWidth / 3 - 5;
+    this.addPageIfNeeded(boxHeight + 10);
+    
+    entries.forEach(([key, value], index) => {
+      const x = this.margin + (index % 3) * (boxWidth + 7.5);
+      if (index > 0 && index % 3 === 0) {
+        this.y += boxHeight + 10;
+        this.addPageIfNeeded(boxHeight + 10);
+      }
+      
+      this.doc.setDrawColor(COLORS.BORDER_LIGHT);
+      this.doc.roundedRect(x, this.y, boxWidth, boxHeight, 3, 3, 'S');
+
+      this.doc.setFontSize(FONT_SIZES.SMALL);
+      this.doc.setTextColor(COLORS.SECONDARY_TEXT);
+      this.doc.text(key, x + 5, this.y + 12);
+      
+      this.doc.setFontSize(FONT_SIZES.BODY);
+      this.doc.setFont('helvetica', 'bold');
+      this.doc.setTextColor(COLORS.PRIMARY_TEXT);
+      this.doc.text(String(value || 'N/A'), x + 5, this.y + 28);
+    });
+    
+    this.y += boxHeight + 15;
+  }
+
 
   addSourceList(sources: GroundingSource[]) {
     this.addPageIfNeeded(20 + sources.length * 15);
@@ -159,39 +235,33 @@ class PdfBuilder {
     this.addSpacer(10);
   }
 
-  addCodeBlock(text: string | undefined, title: string) {
+  addCodeBlock(text: string | undefined) {
     if (!text) return;
     let prettyText = text;
     try {
+        // Text might already be a formatted JSON string, parse and re-stringify to ensure consistent formatting.
         prettyText = JSON.stringify(JSON.parse(text), null, 2);
-    } catch (e) { /* Not JSON, use as is */ }
-
-    this.addPageIfNeeded(30);
-    this.doc.setFontSize(FONT_SIZES.SMALL);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.setTextColor(COLORS.SECONDARY_TEXT);
-    this.doc.text(title, this.margin, this.y);
-    this.y += 12;
+    } catch (e) { /* Not valid JSON, use the text as is */ }
 
     const lines = this.doc.splitTextToSize(prettyText, this.contentWidth - 20);
-    const rectHeight = lines.length * 9 + 20; // 9 is font size + line height for courier
+    const rectHeight = lines.length * 9 + 20; // Using 9 for Courier font size + line spacing
     this.addPageIfNeeded(rectHeight + 10);
     
     this.doc.setFillColor(COLORS.CODE_BG);
-    this.doc.roundedRect(this.margin, this.y, this.contentWidth, rectHeight, 5, 5, 'F');
+    this.doc.setDrawColor(COLORS.BORDER_LIGHT);
+    this.doc.roundedRect(this.margin, this.y, this.contentWidth, rectHeight, 5, 5, 'FD');
     
     this.doc.setFont('courier', 'normal');
     this.doc.setFontSize(FONT_SIZES.SMALL);
     this.doc.setTextColor(COLORS.PRIMARY_TEXT);
     this.doc.text(lines, this.margin + 10, this.y + 15);
-    this.y += rectHeight + 10;
+    this.y += rectHeight + 15;
   }
   
   addStep(step: ExecutionStep) {
-    const stepTitle = `${step.id}. ${step.stepName}`;
+    const stepTitle = `${step.agentKey.toUpperCase()}: ${step.stepName}`;
     const statusText = step.status.charAt(0).toUpperCase() + step.status.slice(1);
-    const metaText = `Agent: ${step.agentKey.toUpperCase()} | Status: ${statusText}`;
-
+    
     const inputLines = step.input ? this.doc.splitTextToSize(step.input, this.contentWidth - 20).length : 0;
     const outputLines = step.output ? this.doc.splitTextToSize(step.output, this.contentWidth - 20).length : 0;
     const requiredHeight = 50 + (inputLines * 9) + (outputLines * 9);
@@ -205,29 +275,36 @@ class PdfBuilder {
     this.doc.setFont('helvetica', 'bold');
     this.doc.setTextColor(COLORS.PRIMARY_TEXT);
     this.doc.text(stepTitle, this.margin, this.y);
-    this.y += 15;
-    
+
+    const statusWidth = this.doc.getTextWidth(statusText);
     this.doc.setFontSize(FONT_SIZES.SMALL);
     this.doc.setFont('helvetica', 'normal');
     this.doc.setTextColor(COLORS.SECONDARY_TEXT);
-    this.doc.text(metaText, this.margin, this.y);
-    this.y += 15;
+    this.doc.text(statusText, this.pageWidth - this.margin - statusWidth, this.y);
+    
+    this.y += 20;
 
-    this.addCodeBlock(step.input, 'Input');
-    this.addCodeBlock(step.output, 'Output');
+    if (step.input) {
+        this.addSubsectionTitle('Input');
+        this.addCodeBlock(step.input);
+    }
+    if (step.output) {
+        this.addSubsectionTitle('Output');
+        this.addCodeBlock(step.output);
+    }
     
     this.addSpacer(10);
   }
   
-  addKeyInsightBox(title: string, value: string, color: string) {
+  addKeyInsightBox(title: string, value: string, color: string, x: number, boxWidth: number, boxHeight: number) {
     this.doc.setFontSize(FONT_SIZES.SMALL);
     this.doc.setTextColor(COLORS.SECONDARY_TEXT);
-    this.doc.text(title, this.margin + 10, this.y + 15);
+    this.doc.text(title, x + 10, this.y + 15);
     
     this.doc.setFontSize(FONT_SIZES.H3);
     this.doc.setFont('helvetica', 'bold');
     this.doc.setTextColor(color);
-    this.doc.text(value, this.margin + 10, this.y + 35);
+    this.doc.text(value, x + 10, this.y + 35);
   }
 
   addKeyInsightsGrid(analysisResult: StockAnalysis, currencySymbol: string) {
@@ -238,24 +315,45 @@ class PdfBuilder {
     
     const insights = [
         { title: 'Recommendation', value: analysisResult.recommendation, color: COLORS.ACCENT_BLUE },
-        { title: 'Short-Term Target', value: formatPrice(getMetricValue(analysisResult.target_price.short_term), currencySymbol), color: COLORS.PRIMARY_TEXT },
-        { title: 'Long-Term Target', value: formatPrice(getMetricValue(analysisResult.target_price.long_term), currencySymbol), color: COLORS.PRIMARY_TEXT },
-        { title: 'Stop Loss', value: formatPrice(getMetricValue(analysisResult.stop_loss), currencySymbol), color: COLORS.RED }
+        { title: 'Short-Term Target', value: formatPrice(parseFloat(getMetricValue(analysisResult.target_price.short_term)), currencySymbol), color: COLORS.PRIMARY_TEXT },
+        { title: 'Long-Term Target', value: formatPrice(parseFloat(getMetricValue(analysisResult.target_price.long_term)), currencySymbol), color: COLORS.PRIMARY_TEXT },
+        { title: 'Stop Loss', value: formatPrice(parseFloat(getMetricValue(analysisResult.stop_loss)), currencySymbol), color: COLORS.RED }
     ];
 
     insights.forEach((insight, i) => {
-        const x = startX + i * (boxWidth + 5);
+        const x = startX + i * (boxWidth + 6.5);
         this.doc.setDrawColor(COLORS.BORDER_LIGHT);
         this.doc.roundedRect(x, this.y, boxWidth, boxHeight, 5, 5, 'S');
-        this.addKeyInsightBox(insight.title, insight.value, insight.color);
+        this.addKeyInsightBox(insight.title, insight.value, insight.color, x, boxWidth, boxHeight);
     });
     
     this.y += boxHeight + 20;
   }
+
+  addPriceSummary(analysis: StockAnalysis, currencySymbol: string) {
+    this.addPageIfNeeded(40);
+    const price = formatPrice(analysis.current_price, currencySymbol);
+    const change = analysis.price_change ?? 0;
+    const changePercent = analysis.price_change_percentage ?? '';
+    const isPositive = change >= 0;
+    const changeText = `${isPositive ? '+' : ''}${formatPrice(change, currencySymbol)} (${changePercent})`;
+
+    this.doc.setFontSize(24);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setTextColor(COLORS.PRIMARY_TEXT);
+    this.doc.text(price, this.margin, this.y);
+    
+    this.doc.setFontSize(FONT_SIZES.BODY);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.setTextColor(isPositive ? COLORS.GREEN : COLORS.RED);
+    this.doc.text(changeText, this.margin, this.y + 15);
+    
+    this.y += 35;
+}
   
   addRiskAnalysis(riskAnalysis: RiskAnalysis) {
       const { risk_score, risk_level, summary, key_risk_factors } = riskAnalysis;
-      const riskColor = risk_score > 75 ? COLORS.RED : risk_score > 50 ? COLORS.YELLOW : COLORS.GREEN;
+      const riskColor = risk_score > 75 ? COLORS.RED : risk_score > 50 ? COLORS.ORANGE : risk_score > 25 ? COLORS.YELLOW : COLORS.GREEN;
       
       this.addPageIfNeeded(80);
       
@@ -266,15 +364,44 @@ class PdfBuilder {
       
       this.addBodyText(summary);
       
-      this.doc.setFontSize(FONT_SIZES.BODY);
-      this.doc.setFont('helvetica', 'bold');
-      this.doc.text('Key Risk Factors:', this.margin, this.y);
-      this.y += 15;
-      
-      this.doc.setFont('helvetica', 'normal');
-      key_risk_factors.forEach(factor => {
-          this.addBodyText(`• ${factor}`);
-      });
+      this.addBulletedList('Key Risk Factors:', key_risk_factors, 'negative');
+  }
+
+  addCompetitiveTable(analysis: CompetitiveAnalysis, currencySymbol: string) {
+    const headers = ['METRIC', 'TARGET CO.', ...analysis.competitors.map(c => c.name.toUpperCase()), 'INDUSTRY AVG.'];
+    const metrics: (keyof FinancialMetrics)[] = ['market_cap', 'pe_ratio', 'pb_ratio', 'debt_to_equity', 'roe'];
+
+    const bodyData = metrics.map(metric => {
+        return [
+            metric.replace(/_/g, ' ').toUpperCase(),
+            getMetricValue(analysis.target_company_metrics?.[metric] ?? null),
+            ...analysis.competitors.map(c => getMetricValue(c.metrics?.[metric] ?? null)),
+            getMetricValue(analysis.industry_average_metrics?.[metric] ?? null),
+        ];
+    });
+
+    this.addPageIfNeeded(150); // Rough estimate
+    
+    autoTable(this.doc, {
+        head: [headers],
+        body: bodyData,
+        startY: this.y,
+        theme: 'grid',
+        styles: {
+            fontSize: FONT_SIZES.SMALL,
+            cellPadding: 4,
+        },
+        headStyles: {
+            fillColor: COLORS.HEADER_BG,
+            textColor: COLORS.HEADER_TEXT,
+            fontStyle: 'bold',
+        },
+        columnStyles: {
+            0: { cellWidth: 80, fontStyle: 'bold' },
+        },
+    });
+    
+    this.y = (this.doc as any).lastAutoTable.finalY + 20;
   }
 
    addDebateLog(critique: ChiefAnalystCritique & { refined_answer?: string }) {
@@ -285,7 +412,7 @@ class PdfBuilder {
         this.addBodyText(`To the ${critique.target_agent} Agent: "${critique.remediation_question}"`);
         if (critique.refined_answer) {
             this.addSubsectionTitle("Refined Answer from Specialist");
-            this.addCodeBlock(critique.refined_answer, '');
+            this.addCodeBlock(critique.refined_answer);
         }
         this.addSpacer(20);
     }
@@ -338,6 +465,7 @@ export const generateAnalysisPdf = async (
   competitiveAnalysis: CompetitiveAnalysis | null,
   sectorAnalysis: SectorAnalysis | null,
   corporateCalendarAnalysis: CorporateCalendarAnalysis | null,
+  marketSentimentAnalysis: MarketSentimentAnalysis | null,
   currencySymbol: string
 ) => {
     const builder = new PdfBuilder(`Financial Analysis Report (${analysisResult.stock_symbol})`);
@@ -345,6 +473,7 @@ export const generateAnalysisPdf = async (
     
     // --- Key Insights & Risk ---
     builder.addSectionTitle('Key Insights & Recommendation');
+    builder.addPriceSummary(analysisResult, currencySymbol);
     builder.addKeyInsightsGrid(analysisResult, currencySymbol);
     if (analysisResult.risk_analysis) {
         builder.addRiskAnalysis(analysisResult.risk_analysis);
@@ -371,15 +500,65 @@ export const generateAnalysisPdf = async (
     builder.addBodyText(analysisResult.justification.financial_ratios_summary);
     builder.addSpacer(20);
 
-    // --- Contextual Summaries from Agents ---
-    builder.addSectionTitle('Context from Specialist Agents');
-    if (esgAnalysis) { builder.addSubsectionTitle('ESG Summary'); builder.addBodyText(analysisResult.contextual_inputs.esg_summary); }
-    if (macroAnalysis) { builder.addSubsectionTitle('Macroeconomic Summary'); builder.addBodyText(analysisResult.contextual_inputs.macroeconomic_summary); }
-    if (newsAnalysis) { builder.addSubsectionTitle('News Summary'); builder.addBodyText(analysisResult.contextual_inputs.news_summary); }
-    if (leadershipAnalysis) { builder.addSubsectionTitle('Leadership Summary'); builder.addBodyText(analysisResult.contextual_inputs.leadership_summary); }
-    if (competitiveAnalysis) { builder.addSubsectionTitle('Competitive Summary'); builder.addBodyText(analysisResult.contextual_inputs.competitive_summary); }
-    if (sectorAnalysis) { builder.addSubsectionTitle('Sector Summary'); builder.addBodyText(analysisResult.contextual_inputs.sector_summary); }
-    if (corporateCalendarAnalysis) { builder.addSubsectionTitle('Corporate Calendar Summary'); builder.addBodyText(analysisResult.contextual_inputs.corporate_calendar_summary); }
+    // --- Detailed Contextual Summaries from Agents ---
+    builder.addSectionTitle('Detailed Specialist Agent Analysis');
+    if (esgAnalysis) {
+        builder.addSubsectionTitle('ESG Analysis');
+        builder.addKeyValueGrid({
+            'ESG Score': esgAnalysis.score,
+            'Momentum': esgAnalysis.esg_momentum,
+            'Confidence': esgAnalysis.score_confidence || 'N/A',
+            'Last Updated': formatDate(esgAnalysis.last_updated),
+        });
+        builder.addBodyText(esgAnalysis.justification.overall_summary);
+    }
+    if (macroAnalysis) {
+        builder.addSubsectionTitle('Macroeconomic Analysis');
+        builder.addKeyValueGrid({
+            'GDP Growth': macroAnalysis.gdp_growth,
+            'Inflation Rate': macroAnalysis.inflation_rate,
+            'Interest Rate': macroAnalysis.interest_rate
+        });
+        builder.addBodyText(macroAnalysis.outlook_summary);
+    }
+     if (marketSentimentAnalysis) {
+        builder.addSubsectionTitle('Market Sentiment Analysis');
+        builder.addKeyValueGrid({'Overall Sentiment': marketSentimentAnalysis.overall_sentiment});
+        builder.addBodyText(marketSentimentAnalysis.sentiment_summary);
+        builder.addBulletedList('Positive Points', marketSentimentAnalysis.key_positive_points, 'positive');
+        builder.addBulletedList('Negative Points', marketSentimentAnalysis.key_negative_points, 'negative');
+    }
+    if (newsAnalysis) {
+        builder.addSubsectionTitle('News Analysis');
+        builder.addKeyValueGrid({'Overall Sentiment': newsAnalysis.overall_sentiment});
+        builder.addBodyText(newsAnalysis.summary);
+    }
+     if (leadershipAnalysis) {
+        builder.addSubsectionTitle('Leadership Analysis');
+        builder.addKeyValueGrid({'Overall Assessment': leadershipAnalysis.overall_assessment});
+        builder.addBodyText(leadershipAnalysis.summary);
+    }
+    if (competitiveAnalysis) {
+        builder.addSubsectionTitle('Competitive Analysis');
+        builder.addBodyText(competitiveAnalysis.competitive_summary);
+        builder.addCompetitiveTable(competitiveAnalysis, currencySymbol);
+    }
+    if (sectorAnalysis) {
+        builder.addSubsectionTitle('Sector Analysis');
+        builder.addKeyValueGrid({'Sector Outlook': sectorAnalysis.sector_outlook});
+        builder.addBodyText(sectorAnalysis.summary);
+        builder.addBulletedList('Key Drivers', sectorAnalysis.key_drivers, 'positive');
+        builder.addBulletedList('Key Risks', sectorAnalysis.key_risks, 'negative');
+    }
+    if (corporateCalendarAnalysis) {
+        builder.addSubsectionTitle('Corporate Calendar');
+        builder.addKeyValueGrid({
+            'Next Earnings': corporateCalendarAnalysis.next_earnings_date,
+            'Ex-Dividend Date': corporateCalendarAnalysis.dividend_ex_date,
+            'Analyst Day': corporateCalendarAnalysis.analyst_day_date
+        });
+        builder.addBodyText(corporateCalendarAnalysis.summary);
+    }
     builder.addSpacer(20);
     
     // --- Debate Log ---

@@ -9,9 +9,13 @@ Output exactly one JSON object in a \`\`\`json ... \`\`\` block. Do not add keys
 
 export const PLANNING_AGENT_PROMPT = `
 ROLE: Lead Financial Analyst Coordinator.
-TASK: Produce a one-line plan for comprehensive stock analysis.
-OUTPUT: A single line string (no JSON). Be concise.
-Plan must include: (1) gather specialist inputs, (2) extract raw numbers, (3) compute key metrics, (4) cross-verify, (5) draft analysis, (6) critique/debate, (7) finalize synthesis.
+TASK: Create a concise, step-by-step analysis plan for the provided stock.
+CONTEXT: The analysis will use the provided list of specialist agents.
+${UNIVERSAL_RULES}
+SCHEMA:
+{
+  "plan": ["string"]
+}
 `; // Short, directive instructions reduce overhead vs verbose rules. [7][1]
 
 export const ESG_AGENT_PROMPT = `
@@ -154,6 +158,24 @@ SCHEMA:
 }
 `; // Move format rules into schema to cut prose. [9][1]
 
+export const MARKET_SENTIMENT_AGENT_PROMPT = `
+ROLE: Market Sentiment Analyst ([Market Name]).
+TASK: Synthesize market sentiment for the company. Focus on recent news (last 7 days), expert opinions (analysts, influential investors), and key institutional ownership.
+${UNIVERSAL_RULES}
+SCHEMA:
+{
+  "overall_sentiment": "'Positive'|'Negative'|'Neutral'|'N/A'",
+  "sentiment_summary": "string (max 320 chars)",
+  "key_positive_points": ["string"],
+  "key_negative_points": ["string"],
+  "major_holders": [
+    { "name": "string", "stake": "string (e.g., '5.2%')" }
+  ],
+  "na_justifications": "object|null"
+}
+`;
+
+
 export const CHIEF_ANALYST_AGENT_PROMPT = `
 ROLE: Chief Investment Analyst (skeptical).
 TASK: Find the most critical conflict and ask one targeted question to a single agent.
@@ -162,7 +184,7 @@ SCHEMA:
 {
   "conflict_summary": "string (max 240 chars)",
   "remediation_question": "string (max 240 chars)",
-  "target_agent": "'ESG'|'Macro'|'News'|'Leadership'|'Competitive'|'Sector'|'Calendar'|'None'",
+  "target_agent": "'ESG'|'Macro'|'News'|'Leadership'|'Competitive'|'Sector'|'Calendar'|'Sentiment'|'None'",
   "reasoning": "string (max 240 chars)"
 }
 `; // Focused fields + caps sharpen critique, reduce tokens. [1][10]
@@ -204,7 +226,7 @@ SCHEMA:
   "contextual_inputs": {
     "esg_summary": "string", "macroeconomic_summary": "string", "news_summary": "string",
     "leadership_summary": "string", "competitive_summary": "string", "sector_summary": "string",
-    "corporate_calendar_summary": "string"
+    "corporate_calendar_summary": "string", "market_sentiment_summary": "string"
   },
   "justification": {
     "nutshell_summary": "string (max 200 chars)",
@@ -262,4 +284,4 @@ Use markdown with bold labels and 5–7 bullets:
 - Trade expression (cash/options; hedge/pairs; risk; stops/targets ranges)
 - Monitoring (triggers, KPIs, prints)
 - Risk score (1–5), Conviction (Low/Med/High)
-`; // Tighter word cap and standardized bullets curb verbosity and improve usability. [1][7][10]
+`; // Tighter word cap and standardized bullets curb verbosity and improve usability. [1][7][10

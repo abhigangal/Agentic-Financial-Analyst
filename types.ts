@@ -163,8 +163,23 @@ export interface CorporateCalendarAnalysis {
 export interface ChiefAnalystCritique {
   conflict_summary: string;
   remediation_question: string;
-  target_agent: 'ESG' | 'Macro' | 'News' | 'Leadership' | 'Competitive' | 'Sector' | 'Calendar' | 'None';
+  target_agent: 'ESG' | 'Macro' | 'News' | 'Leadership' | 'Competitive' | 'Sector' | 'Calendar' | 'Sentiment' | 'None';
   reasoning: string;
+}
+
+export interface InstitutionalHolder {
+  name: string;
+  stake: string; // e.g., "5.2%"
+}
+
+export interface MarketSentimentAnalysis {
+  overall_sentiment: 'Positive' | 'Negative' | 'Neutral' | 'N/A';
+  sentiment_summary: string;
+  key_positive_points: string[];
+  key_negative_points: string[];
+  major_holders: InstitutionalHolder[];
+  sources?: GroundingSource[];
+  na_justifications?: { [key: string]: string; };
 }
 
 export interface StockAnalysis {
@@ -195,6 +210,7 @@ export interface StockAnalysis {
     competitive_summary: string;
     sector_summary: string;
     corporate_calendar_summary: string;
+    market_sentiment_summary: string;
   };
   justification: {
     nutshell_summary: string;

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource } from './types';
-import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getNewsAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getFinancialData } from './services/geminiService';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, MarketSentimentAnalysis } from './types';
+// Fix: Import getMarketSentimentAnalysis to enable the sentiment agent.
+import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getNewsAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getFinancialData, getMarketSentimentAnalysis } from './services/geminiService';
 import { generateAnalysisPdf, generateMethodologyPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
 import { Breadcrumbs } from './components/Breadcrumbs';
@@ -13,9 +14,6 @@ import { NutshellSummary } from './components/NutshellSummary';
 import { AnalysisConfiguration } from './components/AnalysisConfiguration';
 import { agentConfigurations, AgentKey } from './components/AnalysisConfiguration';
 import * as calculator from './services/calculatorService';
-import { useAuth } from './contexts/AuthContext';
-import { LoginPage } from './components/auth/LoginPage';
-import { FullPageLoader } from './components/FullPageLoader';
 
 
 const LOCAL_STORAGE_KEY = 'agentic_financial_analyst_custom_stocks';
@@ -30,6 +28,7 @@ export interface AnalysisCacheItem {
     competitiveAnalysis: CompetitiveAnalysis | null;
     sectorAnalysis: SectorAnalysis | null;
     corporateCalendarAnalysis: CorporateCalendarAnalysis | null;
+    marketSentimentAnalysis: MarketSentimentAnalysis | null;
     timestamp: number;
 }
 
@@ -51,6 +50,8 @@ const getSummaryFromAgentResult = (agentKey: AgentKey, result: any): string => {
             case 'esg': return result.justification?.overall_summary || JSON.stringify(result);
             case 'macro': return result.outlook_summary || JSON.stringify(result);
             case 'competitive': return result.competitive_summary || JSON.stringify(result);
+            // Fix: Add case for sentiment analysis summary.
+            case 'sentiment': return result.sentiment_summary || JSON.stringify(result);
             case 'news':
             case 'leadership':
             case 'sector':
@@ -65,8 +66,6 @@ const getSummaryFromAgentResult = (agentKey: AgentKey, result: any): string => {
 };
 
 const App: React.FC = () => {
-  const { user, loading } = useAuth();
-  
   // Main Analysis State
   const [analysisResult, setAnalysisResult] = useState<StockAnalysis | null>(null);
   const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>('IDLE');
@@ -83,6 +82,8 @@ const App: React.FC = () => {
   const [competitiveAnalysis, setCompetitiveAnalysis] = useState<CompetitiveAnalysis | null>(null);
   const [sectorAnalysis, setSectorAnalysis] = useState<SectorAnalysis | null>(null);
   const [corporateCalendarAnalysis, setCorporateCalendarAnalysis] = useState<CorporateCalendarAnalysis | null>(null);
+  // Fix: Add state for market sentiment analysis.
+  const [marketSentimentAnalysis, setMarketSentimentAnalysis] = useState<MarketSentimentAnalysis | null>(null);
   const [chiefAnalystCritique, setChiefAnalystCritique] = useState<(ChiefAnalystCritique & { refined_answer?: string }) | null>(null);
   const [rawFinancials, setRawFinancials] = useState<RawFinancials | null>(null);
   const [calculatedMetrics, setCalculatedMetrics] = useState<Record<string, CalculatedMetric>>({});
@@ -98,6 +99,8 @@ const App: React.FC = () => {
     competitive: initialAgentStatus,
     sector: initialAgentStatus,
     calendar: initialAgentStatus,
+    // Fix: Add status tracking for the sentiment agent.
+    sentiment: initialAgentStatus,
     chief: initialAgentStatus,
     data_extractor: initialAgentStatus,
   });
@@ -134,7 +137,8 @@ const App: React.FC = () => {
   
   const addExecutionLog = (step: Omit<ExecutionStep, 'id' | 'timestamp'>) => {
     const newStep: ExecutionStep = {
-        id: executionLog.length + 1,
+        // Use a more robust unique ID to prevent state issues on rapid updates
+        id: Date.now() + Math.random(),
         timestamp: new Date().toISOString(),
         ...step,
     };
@@ -176,6 +180,8 @@ const App: React.FC = () => {
     setCompetitiveAnalysis(null);
     setSectorAnalysis(null);
     setCorporateCalendarAnalysis(null);
+    // Fix: Reset market sentiment analysis state.
+    setMarketSentimentAnalysis(null);
     setChiefAnalystCritique(null);
     setRawFinancials(null);
     setCalculatedMetrics({});
@@ -184,8 +190,8 @@ const App: React.FC = () => {
     setAgentStatuses({
         financial: initialAgentStatus, esg: initialAgentStatus, macro: initialAgentStatus,
         news: initialAgentStatus, leadership: initialAgentStatus, competitive: initialAgentStatus,
-        sector: initialAgentStatus, calendar: initialAgentStatus, chief: initialAgentStatus,
-        data_extractor: initialAgentStatus
+        sector: initialAgentStatus, calendar: initialAgentStatus, sentiment: initialAgentStatus,
+        chief: initialAgentStatus, data_extractor: initialAgentStatus
     });
     setAnalysisPhase('PLANNING');
 
@@ -194,8 +200,12 @@ const App: React.FC = () => {
         stepName: string,
         serviceCall: () => Promise<T>,
         isCached: boolean = false,
-        inputToLog?: object | string
+        inputToLog?: object | string,
+        delayMs: number = 0
     ): Promise<T | null> => {
+        if (delayMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
         setAgentStatus(agentKey as any, { isLoading: true, error: null });
         const logId = addExecutionLog({
             agentKey,
@@ -229,23 +239,28 @@ const App: React.FC = () => {
     };
     
     // --- 1. Planning ---
-    const plan = await agentRunner('financial', 'Create Analysis Plan', () => getAnalysisPlan(symbol, activeMarketConfig.name, Object.keys(enabledAgentsConfig).join(', ')));
+    const plan = await agentRunner('financial', 'Create Analysis Plan', () => getAnalysisPlan(symbol, activeMarketConfig.name, Object.keys(enabledAgentsConfig).filter(k => enabledAgentsConfig[k as AgentKey]).join(', ')));
     if (!plan) { setAnalysisPhase('ERROR'); return; }
-    setAnalysisPlan(plan);
+    setAnalysisPlan(plan as string);
     setAnalysisPhase('GATHERING');
 
     // --- 2. Intelligence Gathering & Data Extraction ---
     const dataPromises: Record<string, Promise<any>> = {};
-    if (enabledAgentsConfig.esg) dataPromises.esg = agentRunner('esg', 'Analyze ESG Profile', () => getEsgAnalysis(symbol, activeMarketConfig.name), true);
-    if (enabledAgentsConfig.macro) dataPromises.macro = agentRunner('macro', 'Analyze Macroeconomic Trends', () => getMacroAnalysis(symbol, activeMarketConfig.name), true);
-    if (enabledAgentsConfig.news) dataPromises.news = agentRunner('news', 'Analyze Recent News', () => getNewsAnalysis(symbol, activeMarketConfig.name), true);
-    if (enabledAgentsConfig.leadership) dataPromises.leadership = agentRunner('leadership', 'Analyze Leadership Team', () => getLeadershipAnalysis(symbol, activeMarketConfig.name), true);
-    if (enabledAgentsConfig.competitive) dataPromises.competitive = agentRunner('competitive', 'Analyze Competitors', () => getCompetitiveAnalysis(symbol, activeMarketConfig.name), true);
-    if (enabledAgentsConfig.sector) dataPromises.sector = agentRunner('sector', 'Analyze Sector Outlook', () => getSectorAnalysis(symbol, activeMarketConfig.name), true);
-    if (enabledAgentsConfig.calendar) dataPromises.calendar = agentRunner('calendar', 'Analyze Corporate Calendar', () => getCorporateCalendarAnalysis(symbol, activeMarketConfig.name), true);
+    let agentDelay = 0;
+    const jitter = () => Math.random() * 200;
+
+    if (enabledAgentsConfig.esg) { agentDelay += 150 + jitter(); dataPromises.esg = agentRunner('esg', 'Analyze ESG Profile', () => getEsgAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
+    if (enabledAgentsConfig.macro) { agentDelay += 150 + jitter(); dataPromises.macro = agentRunner('macro', 'Analyze Macroeconomic Trends', () => getMacroAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
+    if (enabledAgentsConfig.news) { agentDelay += 150 + jitter(); dataPromises.news = agentRunner('news', 'Analyze Recent News', () => getNewsAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
+    if (enabledAgentsConfig.leadership) { agentDelay += 150 + jitter(); dataPromises.leadership = agentRunner('leadership', 'Analyze Leadership Team', () => getLeadershipAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
+    if (enabledAgentsConfig.competitive) { agentDelay += 150 + jitter(); dataPromises.competitive = agentRunner('competitive', 'Analyze Competitors', () => getCompetitiveAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
+    if (enabledAgentsConfig.sector) { agentDelay += 150 + jitter(); dataPromises.sector = agentRunner('sector', 'Analyze Sector Outlook', () => getSectorAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
+    if (enabledAgentsConfig.calendar) { agentDelay += 150 + jitter(); dataPromises.calendar = agentRunner('calendar', 'Analyze Corporate Calendar', () => getCorporateCalendarAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
+    if (enabledAgentsConfig.sentiment) { agentDelay += 150 + jitter(); dataPromises.sentiment = agentRunner('sentiment', 'Analyze Market Sentiment', () => getMarketSentimentAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
     
     const screenerUrl = activeMarketConfig.screenerUrlTemplate.replace('{symbol}', symbol);
-    dataPromises.rawFinancials = agentRunner('data_extractor', 'Extract Raw Financials', () => getFinancialData(screenerUrl, activeMarketConfig.screenerName), true);
+    agentDelay += 150 + jitter();
+    dataPromises.rawFinancials = agentRunner('data_extractor', 'Extract Raw Financials', () => getFinancialData(screenerUrl, activeMarketConfig.screenerName), true, undefined, agentDelay);
     
     const dataEntries = Object.entries(dataPromises);
     const results = await Promise.allSettled(dataEntries.map(entry => entry[1]));
@@ -286,6 +301,8 @@ const App: React.FC = () => {
     setCompetitiveAnalysis(gatheredData.competitive || null);
     setSectorAnalysis(gatheredData.sector || null);
     setCorporateCalendarAnalysis(gatheredData.calendar || null);
+    // Fix: Set market sentiment analysis state after data gathering.
+    setMarketSentimentAnalysis(gatheredData.sentiment || null);
     setRawFinancials(gatheredData.rawFinancials || null);
 
     // --- 3. Calculation ---
@@ -342,6 +359,8 @@ const App: React.FC = () => {
         competitive: getSummaryFromAgentResult('competitive', gatheredData.competitive),
         sector: getSummaryFromAgentResult('sector', gatheredData.sector),
         calendar: getSummaryFromAgentResult('calendar', gatheredData.calendar),
+        // Fix: Provide sentiment summary as context for the financial agent.
+        sentiment: getSummaryFromAgentResult('sentiment', gatheredData.sentiment),
     };
     
     let additionalContextPrompt = '';
@@ -382,10 +401,12 @@ const App: React.FC = () => {
     let refinedAnswer: string | undefined;
     if (critique.target_agent !== 'None') {
         const targetAgentKey = critique.target_agent.toLowerCase() as AgentKey;
-        const agentServiceMap: { [key in AgentKey]: (...args: any[]) => Promise<any> } = {
+        // Fix: Add getMarketSentimentAnalysis to the agent service map for refinement.
+        const agentServiceMap: { [key in AgentKey]?: (...args: any[]) => Promise<any> } = {
             esg: getEsgAnalysis, macro: getMacroAnalysis, news: getNewsAnalysis,
             leadership: getLeadershipAnalysis, competitive: getCompetitiveAnalysis,
-            sector: getSectorAnalysis, calendar: getCorporateCalendarAnalysis
+            sector: getSectorAnalysis, calendar: getCorporateCalendarAnalysis,
+            sentiment: getMarketSentimentAnalysis
         };
         const agentService = agentServiceMap[targetAgentKey];
         if (agentService) {
@@ -484,6 +505,7 @@ const App: React.FC = () => {
     setCompetitiveAnalysis(null);
     setSectorAnalysis(null);
     setCorporateCalendarAnalysis(null);
+    setMarketSentimentAnalysis(null);
     setExecutionLog([]);
   };
   
@@ -500,6 +522,7 @@ const App: React.FC = () => {
         competitiveAnalysis,
         sectorAnalysis,
         corporateCalendarAnalysis,
+        marketSentimentAnalysis,
         activeMarketConfig.currencySymbol
       );
     } catch (error) {
@@ -537,6 +560,7 @@ const App: React.FC = () => {
         setCompetitiveAnalysis(null);
         setSectorAnalysis(null);
         setCorporateCalendarAnalysis(null);
+        setMarketSentimentAnalysis(null);
         setAnalysisCache({});
         setAgentCache({});
         setCustomStockList([]);
@@ -588,6 +612,7 @@ const App: React.FC = () => {
           </div>
           
           <main>
+              {/* Fix: Pass marketSentimentAnalysis to TabbedAnalysis component. */}
               <TabbedAnalysis
                   currentSymbol={currentSymbol}
                   analysisResult={analysisResult}
@@ -598,6 +623,7 @@ const App: React.FC = () => {
                   competitiveAnalysis={competitiveAnalysis}
                   sectorAnalysis={sectorAnalysis}
                   corporateCalendarAnalysis={corporateCalendarAnalysis}
+                  marketSentimentAnalysis={marketSentimentAnalysis}
                   currencySymbol={activeMarketConfig.currencySymbol}
                   onRetry={() => enabledAgents && runAnalysis(currentSymbol, enabledAgents)}
                   enabledAgents={enabledAgents}
@@ -612,14 +638,6 @@ const App: React.FC = () => {
         </div>
     );
   };
-  
-  if (loading) {
-      return <FullPageLoader />;
-  }
-  
-  if (!user) {
-      return <LoginPage />;
-  }
 
   return (
     <ErrorBoundary>

@@ -128,6 +128,7 @@ export const mockStockAnalysis: StockAnalysis = {
         competitive_summary: 'The market is competitive, but MockCorp has a strong niche.',
         sector_summary: 'The overall sector outlook is positive, driven by digital transformation trends.',
         corporate_calendar_summary: 'Upcoming earnings call is a key catalyst to watch.',
+        market_sentiment_summary: 'Overall market sentiment is positive, with strong institutional buying.',
     },
     justification: {
         nutshell_summary: 'Investing in MockCorp is like betting on a well-managed ship navigating favorable seas. Strong leadership and positive market trends make it a compelling choice.',

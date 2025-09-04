@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CompetitiveAnalysis, FinancialMetrics, Competitor, CalculatedMetric } from '../../types';
 import { CollapsibleSection } from '../CollapsibleSection';
 import { TrophyIcon, CheckCircleIcon, ExclamationTriangleIcon, LinkIcon, InformationCircleIcon } from '../IconComponents';
@@ -15,7 +15,8 @@ const parseMetricValue = (metric: FinancialMetrics[keyof FinancialMetrics]): num
     if (!metric) return null;
     if (typeof metric === 'string') {
         if (metric === 'N/A') return null;
-        const cleaned = metric.replace(/[x%BT,M]/gi, '').trim();
+        const cleaned = metric.replace(/[^\d.-]/g, '');
+        if (cleaned === '') return null;
         const num = parseFloat(cleaned);
         return isNaN(num) ? null : num;
     }
@@ -105,7 +106,7 @@ const StrengthsWeaknesses: React.FC<{ competitor: Competitor }> = ({ competitor 
 
 
 export const CompetitiveResultDisplay: React.FC<CompetitiveResultDisplayProps> = ({ result, stockSymbol, calculatedMetrics }) => {
-  const { market_leader, competitive_summary, competitors, sources, industry_average_metrics } = result;
+  const { market_leader, competitive_summary, competitors, sources } = result;
   
   const targetCompanyMetrics: FinancialMetrics = {
       market_cap: result.target_company_metrics?.market_cap ?? null,
@@ -114,11 +115,56 @@ export const CompetitiveResultDisplay: React.FC<CompetitiveResultDisplayProps> =
       debt_to_equity: calculatedMetrics.debtToEquity ?? result.target_company_metrics?.debt_to_equity ?? null,
       roe: calculatedMetrics.roe ?? result.target_company_metrics?.roe ?? null
   };
+
+  const calculatedIndustryAverageMetrics = useMemo((): FinancialMetrics | null => {
+    if (!result.competitors || result.competitors.length === 0) {
+        return result.industry_average_metrics; // Fallback to AI-provided if no competitors are listed
+    }
+
+    const averages: { [key in keyof FinancialMetrics]: { sum: number; count: number } } = {
+        market_cap: { sum: 0, count: 0 },
+        pe_ratio: { sum: 0, count: 0 },
+        pb_ratio: { sum: 0, count: 0 },
+        debt_to_equity: { sum: 0, count: 0 },
+        roe: { sum: 0, count: 0 },
+    };
+
+    for (const competitor of result.competitors) {
+        if (!competitor.metrics) continue;
+        
+        for (const key of Object.keys(averages) as (keyof FinancialMetrics)[]) {
+            const parsed = parseMetricValue(competitor.metrics[key]);
+            if (parsed !== null && isFinite(parsed)) {
+                averages[key].sum += parsed;
+                averages[key].count++;
+            }
+        }
+    }
+    
+    const formatAverage = (key: keyof FinancialMetrics): string | null => {
+        const avgData = averages[key];
+        if (avgData.count === 0) return 'N/A';
+        const avg = avgData.sum / avgData.count;
+
+        // Try to match the original data format for consistency
+        if (key === 'market_cap') return `₹${avg.toFixed(2)} Cr`;
+        if (key === 'roe') return `${avg.toFixed(2)}%`;
+        return avg.toFixed(2);
+    };
+    
+    return {
+        market_cap: formatAverage('market_cap'),
+        pe_ratio: formatAverage('pe_ratio'),
+        pb_ratio: formatAverage('pb_ratio'),
+        debt_to_equity: formatAverage('debt_to_equity'),
+        roe: formatAverage('roe'),
+    };
+  }, [result.competitors, result.industry_average_metrics]);
   
   const allEntities = [
       { name: 'Target Co.', metrics: targetCompanyMetrics, symbol: stockSymbol, isCompetitor: false },
       ...competitors.map(c => ({ name: c.name, metrics: c.metrics, symbol: c.stock_symbol, isCompetitor: true })),
-      { name: 'Industry Avg.', metrics: industry_average_metrics, symbol: '', isCompetitor: false }
+      { name: 'Industry Avg.', metrics: calculatedIndustryAverageMetrics, symbol: '', isCompetitor: false }
   ];
 
   return (
@@ -168,7 +214,7 @@ export const CompetitiveResultDisplay: React.FC<CompetitiveResultDisplayProps> =
                               <MetricCell 
                                   key={index}
                                   metric={entity.metrics?.[metric.key] ?? null}
-                                  benchmark={industry_average_metrics?.[metric.key] ?? null}
+                                  benchmark={calculatedIndustryAverageMetrics?.[metric.key] ?? null}
                                   metricType={metric.key}
                                   currencySymbol={'$'}
                               />
