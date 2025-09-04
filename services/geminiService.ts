@@ -1,7 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
-// Fix: Import MarketSentimentAnalysis type.
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, MarketSentimentAnalysis } from '../types';
-// Fix: Import MARKET_SENTIMENT_AGENT_PROMPT.
 import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, NEWS_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, FINANCIAL_DATA_EXTRACTOR_AGENT_PROMPT, MARKET_SENTIMENT_AGENT_PROMPT } from '../constants';
 
 if (!process.env.API_KEY) {
@@ -264,7 +262,6 @@ export async function getCorporateCalendarAnalysis(stockSymbol: string, marketNa
     }
 }
 
-// Fix: Add and export the getMarketSentimentAnalysis function.
 export async function getMarketSentimentAnalysis(stockSymbol: string, marketName: string, overridePrompt?: string): Promise<MarketSentimentAnalysis> {
     let userPrompt = `Please perform a market sentiment analysis for the company with the stock symbol: ${stockSymbol}, which trades in the ${marketName} market.`;
     if (overridePrompt) {

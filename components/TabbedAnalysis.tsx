@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-// Fix: Import MarketSentimentAnalysis type.
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ExecutionStep, CalculatedMetric, GroundingSource, MarketSentimentAnalysis, InstitutionalHolder } from '../types';
 import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, CheckCircleIcon, ExclamationTriangleIcon, LinkIcon, UserCircleIcon as UserIcon } from './IconComponents';
 import { ResultDisplay } from './ResultDisplay';
@@ -20,7 +19,6 @@ import { AnalysisPhase } from '../../App';
 import { PlanAndSteps } from './PlanAndSteps';
 import { VisualGauge } from './VisualGauge';
 
-// Fix: Add MarketSentimentResultDisplay component to render sentiment analysis.
 const sentimentGaugeSegments = [
     { label: 'Negative', color: 'bg-red-200', textColor: 'text-red-800 dark:text-red-300' },
     { label: 'Neutral', color: 'bg-gray-200', textColor: 'text-gray-800 dark:text-gray-300' },
@@ -102,7 +100,6 @@ const MarketSentimentResultDisplay: React.FC<{ result: MarketSentimentAnalysis }
     );
 };
 
-// Fix: Add MarketSentimentAgentCard component wrapper.
 const MarketSentimentAgentCard: React.FC<{ result: MarketSentimentAnalysis | null }> = ({ result }) => {
   if (result) {
     return <MarketSentimentResultDisplay result={result} />;
@@ -122,7 +119,6 @@ interface TabbedAnalysisProps {
   competitiveAnalysis: CompetitiveAnalysis | null;
   sectorAnalysis: SectorAnalysis | null;
   corporateCalendarAnalysis: CorporateCalendarAnalysis | null;
-  // Fix: Add marketSentimentAnalysis to props.
   marketSentimentAnalysis: MarketSentimentAnalysis | null;
   currencySymbol: string;
   onRetry: () => void;
@@ -145,7 +141,6 @@ const TABS = {
     COMPETITION: 'Competition',
     SECTOR: 'Sector',
     CALENDAR: 'Calendar',
-    // Fix: Add SENTIMENT tab key.
     SENTIMENT: 'Sentiment',
 };
 
@@ -198,7 +193,6 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                 <Tabs.Tab id={TABS.CALENDAR} data-test="analysis-tab-calendar">
                     <div className="flex items-center gap-2"><CalendarDaysIcon className="h-5 w-5" /> Calendar</div>
                 </Tabs.Tab>
-                {/* Fix: Add tab for Market Sentiment. */}
                 <Tabs.Tab id={TABS.SENTIMENT} data-test="analysis-tab-sentiment">
                     <div className="flex items-center gap-2"><ChatBubbleLeftRightIcon className="h-5 w-5" /> Sentiment</div>
                 </Tabs.Tab>
@@ -212,14 +206,6 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                             agentStatuses={agentStatuses}
                             enabledAgents={enabledAgents}
                             executionLog={executionLog}
-                            esgAnalysis={props.esgAnalysis}
-                            macroAnalysis={props.macroAnalysis}
-                            newsAnalysis={props.newsAnalysis}
-                            leadershipAnalysis={props.leadershipAnalysis}
-                            competitiveAnalysis={props.competitiveAnalysis}
-                            sectorAnalysis={props.sectorAnalysis}
-                            corporateCalendarAnalysis={props.corporateCalendarAnalysis}
-                            marketSentimentAnalysis={props.marketSentimentAnalysis}
                         />
                     ) : analysisResult ? (
                         <>
@@ -312,7 +298,6 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                         <CorporateCalendarAgentCard result={props.corporateCalendarAnalysis} />
                     </SidekickAgentCard>
                 </Tabs.Panel>
-                {/* Fix: Add panel for Market Sentiment. */}
                 <Tabs.Panel id={TABS.SENTIMENT}>
                     <SidekickAgentCard title="Market Sentiment" icon={<ChatBubbleLeftRightIcon className="h-5 w-5" />} isLoading={agentStatuses.sentiment.isLoading} error={agentStatuses.sentiment.error}>
                         <MarketSentimentAgentCard result={props.marketSentimentAnalysis} />

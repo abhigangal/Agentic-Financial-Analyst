@@ -34,18 +34,26 @@ const getFilenameTimestamp = (): string => {
 
 const formatPrice = (price: number | null, currencySymbol: string): string => {
     if (price === null || isNaN(price)) return 'N/A';
-    return `${currencySymbol}${price.toFixed(2)}`;
+    // The Rupee symbol '₹' renders incorrectly in jsPDF's default fonts.
+    // We intentionally omit it to prevent display bugs, while keeping other symbols.
+    const symbolToShow = currencySymbol === '₹' ? '' : currencySymbol;
+    return `${symbolToShow}${price.toFixed(2)}`;
 };
+
 
 const getMetricValue = (metric: CalculatedMetric | number | string | null): string => {
     if (metric === null || metric === undefined) return 'N/A';
-    if (typeof metric === 'string') return metric;
+    if (typeof metric === 'string') {
+        const num = parseFloat(metric.replace(/[^0-9.-]/g, ''));
+        return isNaN(num) ? metric : num.toFixed(2);
+    }
     if (typeof metric === 'number') return metric.toFixed(2);
     if (metric && typeof metric === 'object' && 'value' in metric) {
         return metric.value !== null ? metric.value.toFixed(2) : 'N/A';
     }
     return 'N/A';
 };
+
 
 const formatDate = (dateString?: string): string | null => {
     if (!dateString) return null;
@@ -69,6 +77,13 @@ class PdfBuilder {
 
   constructor(title: string) {
     this.doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+    
+    // Noto Sans would be embedded here in a real build for full Unicode (e.g., Rupee symbol).
+    // For this environment, we rely on jsPDF's built-in fonts and careful string handling.
+    // this.doc.addFileToVFS('NotoSans-Regular.ttf', ...);
+    // this.doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    // this.doc.setFont('NotoSans');
+
     this.pageHeight = this.doc.internal.pageSize.getHeight();
     this.pageWidth = this.doc.internal.pageSize.getWidth();
     this.contentWidth = this.pageWidth - this.margin * 2;
@@ -130,10 +145,12 @@ class PdfBuilder {
 
   addSectionTitle(text: string) {
     this.addPageIfNeeded(40);
+    this.doc.setFillColor(COLORS.HEADER_BG);
+    this.doc.rect(this.margin, this.y - 18, this.contentWidth, 24, 'F');
     this.doc.setFontSize(FONT_SIZES.H2);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.setTextColor(COLORS.PRIMARY_TEXT);
-    this.doc.text(text, this.margin, this.y);
+    this.doc.setTextColor(COLORS.HEADER_TEXT);
+    this.doc.text(text, this.margin + 5, this.y);
     this.y += 25;
   }
 
@@ -147,7 +164,8 @@ class PdfBuilder {
   }
   
   addBodyText(text: string | null | undefined, options: { isPreformatted?: boolean } = {}) {
-    const sanitizedText = String(text || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+    // Sanitize common problematic characters for PDF rendering.
+    const sanitizedText = String(text || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\u00A0/g, ' ');
     if (!sanitizedText) return;
 
     this.doc.setFontSize(FONT_SIZES.BODY);
@@ -239,7 +257,6 @@ class PdfBuilder {
     if (!text) return;
     let prettyText = text;
     try {
-        // Text might already be a formatted JSON string, parse and re-stringify to ensure consistent formatting.
         prettyText = JSON.stringify(JSON.parse(text), null, 2);
     } catch (e) { /* Not valid JSON, use the text as is */ }
 
@@ -366,38 +383,47 @@ class PdfBuilder {
       
       this.addBulletedList('Key Risk Factors:', key_risk_factors, 'negative');
   }
-
-  addCompetitiveTable(analysis: CompetitiveAnalysis, currencySymbol: string) {
+  
+  addCompetitiveTableWithCharts(analysis: CompetitiveAnalysis) {
     const headers = ['METRIC', 'TARGET CO.', ...analysis.competitors.map(c => c.name.toUpperCase()), 'INDUSTRY AVG.'];
-    const metrics: (keyof FinancialMetrics)[] = ['market_cap', 'pe_ratio', 'pb_ratio', 'debt_to_equity', 'roe'];
+    const metrics: (keyof FinancialMetrics)[] = ['pe_ratio', 'pb_ratio', 'debt_to_equity', 'roe'];
 
     const bodyData = metrics.map(metric => {
         return [
-            metric.replace(/_/g, ' ').toUpperCase(),
+            { content: metric.replace(/_/g, ' ').toUpperCase(), styles: { fontStyle: 'bold' as 'bold' } },
             getMetricValue(analysis.target_company_metrics?.[metric] ?? null),
             ...analysis.competitors.map(c => getMetricValue(c.metrics?.[metric] ?? null)),
             getMetricValue(analysis.industry_average_metrics?.[metric] ?? null),
         ];
     });
 
-    this.addPageIfNeeded(150); // Rough estimate
-    
+    this.addPageIfNeeded(200);
+
     autoTable(this.doc, {
         head: [headers],
         body: bodyData,
         startY: this.y,
         theme: 'grid',
-        styles: {
-            fontSize: FONT_SIZES.SMALL,
-            cellPadding: 4,
-        },
-        headStyles: {
-            fillColor: COLORS.HEADER_BG,
-            textColor: COLORS.HEADER_TEXT,
-            fontStyle: 'bold',
-        },
-        columnStyles: {
-            0: { cellWidth: 80, fontStyle: 'bold' },
+        styles: { fontSize: FONT_SIZES.SMALL, cellPadding: 4, valign: 'middle' },
+        headStyles: { fillColor: COLORS.HEADER_BG, textColor: COLORS.HEADER_TEXT, fontStyle: 'bold' },
+        didDrawCell: (data) => {
+            if (data.section === 'body' && data.column.index > 0) {
+                const rawValue = bodyData[data.row.index][data.column.index] as string;
+                const numValue = parseFloat(rawValue);
+                if (!isNaN(numValue) && Array.isArray(data.row.raw)) {
+                    const allValues = data.row.raw.slice(1).map(v => parseFloat(v as string)).filter(v => !isNaN(v));
+                    const maxValue = Math.max(...allValues);
+                    
+                    if (maxValue > 0) {
+                        const barWidth = (numValue / maxValue) * (data.cell.width - 6);
+                        const isLowerBetter = ['pe_ratio', 'pb_ratio', 'debt_to_equity'].includes(metrics[data.row.index]);
+                        const barColor = isLowerBetter ? (numValue < (maxValue / 2) ? COLORS.GREEN : COLORS.YELLOW) : (numValue > (maxValue / 2) ? COLORS.GREEN : COLORS.YELLOW);
+                        
+                        this.doc.setFillColor(barColor);
+                        this.doc.rect(data.cell.x + 3, data.cell.y + data.cell.height - 8, barWidth, 4, 'F');
+                    }
+                }
+            }
         },
     });
     
@@ -420,6 +446,11 @@ class PdfBuilder {
   addSpacer(height: number) {
     this.addPageIfNeeded(height);
     this.y += height;
+  }
+
+  addNewPage() {
+    this.doc.addPage();
+    this.y = this.margin + 20;
   }
 
   save(filename: string) {
@@ -541,7 +572,7 @@ export const generateAnalysisPdf = async (
     if (competitiveAnalysis) {
         builder.addSubsectionTitle('Competitive Analysis');
         builder.addBodyText(competitiveAnalysis.competitive_summary);
-        builder.addCompetitiveTable(competitiveAnalysis, currencySymbol);
+        builder.addCompetitiveTableWithCharts(competitiveAnalysis);
     }
     if (sectorAnalysis) {
         builder.addSubsectionTitle('Sector Analysis');
@@ -567,6 +598,14 @@ export const generateAnalysisPdf = async (
         builder.addDebateLog(analysisResult.chiefAnalystCritique);
     }
     
+    // --- Raw JSON for appendix ---
+    if (marketSentimentAnalysis) {
+        builder.addNewPage();
+        builder.addSectionTitle('Appendix: Raw Agent Output');
+        builder.addCodeBlock(JSON.stringify(marketSentimentAnalysis, null, 2));
+    }
+
+
     const filename = `Analysis_${analysisResult.stock_symbol}_${getFilenameTimestamp()}.pdf`;
     builder.save(filename);
 };

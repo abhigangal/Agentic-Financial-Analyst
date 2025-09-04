@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, MarketSentimentAnalysis } from './types';
-// Fix: Import getMarketSentimentAnalysis to enable the sentiment agent.
 import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getNewsAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getFinancialData, getMarketSentimentAnalysis } from './services/geminiService';
 import { generateAnalysisPdf, generateMethodologyPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
@@ -50,7 +49,6 @@ const getSummaryFromAgentResult = (agentKey: AgentKey, result: any): string => {
             case 'esg': return result.justification?.overall_summary || JSON.stringify(result);
             case 'macro': return result.outlook_summary || JSON.stringify(result);
             case 'competitive': return result.competitive_summary || JSON.stringify(result);
-            // Fix: Add case for sentiment analysis summary.
             case 'sentiment': return result.sentiment_summary || JSON.stringify(result);
             case 'news':
             case 'leadership':
@@ -82,7 +80,6 @@ const App: React.FC = () => {
   const [competitiveAnalysis, setCompetitiveAnalysis] = useState<CompetitiveAnalysis | null>(null);
   const [sectorAnalysis, setSectorAnalysis] = useState<SectorAnalysis | null>(null);
   const [corporateCalendarAnalysis, setCorporateCalendarAnalysis] = useState<CorporateCalendarAnalysis | null>(null);
-  // Fix: Add state for market sentiment analysis.
   const [marketSentimentAnalysis, setMarketSentimentAnalysis] = useState<MarketSentimentAnalysis | null>(null);
   const [chiefAnalystCritique, setChiefAnalystCritique] = useState<(ChiefAnalystCritique & { refined_answer?: string }) | null>(null);
   const [rawFinancials, setRawFinancials] = useState<RawFinancials | null>(null);
@@ -99,7 +96,6 @@ const App: React.FC = () => {
     competitive: initialAgentStatus,
     sector: initialAgentStatus,
     calendar: initialAgentStatus,
-    // Fix: Add status tracking for the sentiment agent.
     sentiment: initialAgentStatus,
     chief: initialAgentStatus,
     data_extractor: initialAgentStatus,
@@ -180,7 +176,6 @@ const App: React.FC = () => {
     setCompetitiveAnalysis(null);
     setSectorAnalysis(null);
     setCorporateCalendarAnalysis(null);
-    // Fix: Reset market sentiment analysis state.
     setMarketSentimentAnalysis(null);
     setChiefAnalystCritique(null);
     setRawFinancials(null);
@@ -301,7 +296,6 @@ const App: React.FC = () => {
     setCompetitiveAnalysis(gatheredData.competitive || null);
     setSectorAnalysis(gatheredData.sector || null);
     setCorporateCalendarAnalysis(gatheredData.calendar || null);
-    // Fix: Set market sentiment analysis state after data gathering.
     setMarketSentimentAnalysis(gatheredData.sentiment || null);
     setRawFinancials(gatheredData.rawFinancials || null);
 
@@ -359,7 +353,6 @@ const App: React.FC = () => {
         competitive: getSummaryFromAgentResult('competitive', gatheredData.competitive),
         sector: getSummaryFromAgentResult('sector', gatheredData.sector),
         calendar: getSummaryFromAgentResult('calendar', gatheredData.calendar),
-        // Fix: Provide sentiment summary as context for the financial agent.
         sentiment: getSummaryFromAgentResult('sentiment', gatheredData.sentiment),
     };
     
@@ -401,7 +394,6 @@ const App: React.FC = () => {
     let refinedAnswer: string | undefined;
     if (critique.target_agent !== 'None') {
         const targetAgentKey = critique.target_agent.toLowerCase() as AgentKey;
-        // Fix: Add getMarketSentimentAnalysis to the agent service map for refinement.
         const agentServiceMap: { [key in AgentKey]?: (...args: any[]) => Promise<any> } = {
             esg: getEsgAnalysis, macro: getMacroAnalysis, news: getNewsAnalysis,
             leadership: getLeadershipAnalysis, competitive: getCompetitiveAnalysis,
@@ -612,7 +604,6 @@ const App: React.FC = () => {
           </div>
           
           <main>
-              {/* Fix: Pass marketSentimentAnalysis to TabbedAnalysis component. */}
               <TabbedAnalysis
                   currentSymbol={currentSymbol}
                   analysisResult={analysisResult}

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { AnalysisCacheItem, CACHE_TTL_MS } from '../App';
 import { DatabaseIcon, LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, PlayCircleIcon, ChatBubbleLeftRightIcon } from './IconComponents';
 
-// Fix: Add 'sentiment' to AgentKey to enable the Market Sentiment agent.
 export type AgentKey = 'esg' | 'macro' | 'news' | 'leadership' | 'competitive' | 'sector' | 'calendar' | 'sentiment';
 
 interface AgentConfig {
@@ -20,7 +19,6 @@ export const agentConfigurations: AgentConfig[] = [
     { key: 'competitive', name: 'Competition', description: 'Competitive landscape and rival analysis.', icon: <TrophyIcon className="h-6 w-6 text-amber-500" /> },
     { key: 'sector', name: 'Sector Outlook', description: 'Tailwinds and headwinds for the industry.', icon: <BuildingOfficeIcon className="h-6 w-6 text-indigo-500" /> },
     { key: 'calendar', name: 'Corp. Calendar', description: 'Upcoming corporate events and dates.', icon: <CalendarDaysIcon className="h-6 w-6 text-rose-500" /> },
-    // Fix: Add configuration for the Market Sentiment agent.
     { key: 'sentiment', name: 'Market Sentiment', description: 'Analysis of market sentiment and major holders.', icon: <ChatBubbleLeftRightIcon className="h-6 w-6 text-teal-500" /> }
 ];
 

@@ -47,13 +47,20 @@
       .animate-pulse-node {
         animation: pulse-node 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
       }
-      @keyframes flow {
-        to {
-          stroke-dashoffset: -100;
-        }
+      @keyframes pulse-central-node {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.03); opacity: 0.95; }
       }
-      .animate-flow {
-        animation: flow 2.5s linear infinite;
+      .animate-pulse-central-node {
+        animation: pulse-central-node 2.5s ease-in-out infinite;
+        transform-origin: center;
+      }
+      @keyframes shimmer {
+          from { stroke-dashoffset: 50; }
+          to { stroke-dashoffset: 0; }
+      }
+      .animate-shimmer {
+          animation: shimmer 1s linear infinite;
       }
       .scrollbar-hide::-webkit-scrollbar {
         display: none;

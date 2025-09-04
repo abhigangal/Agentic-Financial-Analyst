@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { AnalysisPhase } from '../../App';
 import { AgentKey, agentConfigurations } from './AnalysisConfiguration';
-import { CheckCircleIcon, ExclamationTriangleIcon, SpinnerIcon, DatabaseIcon } from './IconComponents';
-import { EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, MarketSentimentAnalysis, ExecutionStep } from '../../types';
+import { CheckCircleIcon, ExclamationTriangleIcon, SpinnerIcon, DatabaseIcon, FinancialAdvisorIcon } from './IconComponents';
+import { ExecutionStep } from '../../types';
 
 interface AgentStatus {
     isLoading: boolean;
@@ -15,74 +15,19 @@ interface FinancialAdvisorLoaderProps {
     agentStatuses: Record<string, AgentStatus>;
     enabledAgents: Record<AgentKey, boolean> | null;
     executionLog: ExecutionStep[];
-    esgAnalysis: EsgAnalysis | null;
-    macroAnalysis: MacroAnalysis | null;
-    newsAnalysis: NewsAnalysis | null;
-    leadershipAnalysis: LeadershipAnalysis | null;
-    competitiveAnalysis: CompetitiveAnalysis | null;
-    sectorAnalysis: SectorAnalysis | null;
-    corporateCalendarAnalysis: CorporateCalendarAnalysis | null;
-    marketSentimentAnalysis: MarketSentimentAnalysis | null;
 }
 
 const mainPhases: { key: AnalysisPhase, text: string }[] = [
     { key: 'PLANNING', text: 'Planning' },
     { key: 'GATHERING', text: 'Gathering' },
-    { key: 'CALCULATING', text: 'Calculating' },
-    { key: 'DRAFTING', text: 'Drafting' },
+    { key: 'DRAFTING', text: 'Synthesizing' },
     { key: 'DEBATING', text: 'Debating' },
     { key: 'FINALIZING', text: 'Finalizing' },
 ];
 
 const phaseOrder: Record<AnalysisPhase, number> = {
-    IDLE: 0, PLANNING: 1, GATHERING: 2, CALCULATING: 3, VERIFYING: 3,
-    DRAFTING: 4, DEBATING: 5, REFINING: 5, FINALIZING: 6, COMPLETE: 7, ERROR: 7, PAUSED: 7
-};
-
-const getResultSummary = (agentKey: AgentKey, result: any): React.ReactNode => {
-    if (!result) return 'Processing...';
-    try {
-        switch (agentKey) {
-            case 'esg': return <><span className="font-bold">{result.score}</span> ({result.esg_momentum})</>;
-            case 'macro': return <>GDP: <span className="font-bold">{result.gdp_growth}</span></>;
-            case 'news': return <>Sentiment: <span className="font-bold">{result.overall_sentiment}</span></>;
-            case 'leadership': return <>Assessment: <span className="font-bold">{result.overall_assessment}</span></>;
-            case 'competitive': return <>Leader: <span className="font-bold">{result.market_leader}</span></>;
-            case 'sector': return <>Outlook: <span className="font-bold">{result.sector_outlook}</span></>;
-            case 'calendar': return <>Next Earnings: <span className="font-bold">{result.next_earnings_date || 'N/A'}</span></>;
-            case 'sentiment': return <>Sentiment: <span className="font-bold">{result.overall_sentiment}</span></>;
-            default: return 'Data Processed';
-        }
-    } catch (e) { return 'Data Processed'; }
-};
-
-
-const AgentProgressCard: React.FC<{
-    agentConfig: (typeof agentConfigurations)[0] | { key: 'data_extractor', name: 'Financial Data', icon: React.ReactNode },
-    status: AgentStatus,
-    result: any
-}> = ({ agentConfig, status, result }) => {
-    const summary = status.isLoading ? 'Analyzing...' : (status.error ? 'Error' : getResultSummary(agentConfig.key as AgentKey, result));
-    const isComplete = !status.isLoading && !status.error;
-
-    return (
-        <div className="flex flex-col p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 transition-all duration-300 animate-slide-in-bottom">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0">{agentConfig.icon}</div>
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{agentConfig.name}</span>
-                </div>
-                {status.isLoading && <SpinnerIcon className="h-5 w-5 text-blue-500" />}
-                {status.error && <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />}
-                {isComplete && <CheckCircleIcon className="h-5 w-5 text-green-500" />}
-            </div>
-            {isComplete && (
-                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700/50 text-right">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 animate-fade-in">{summary}</p>
-                </div>
-            )}
-        </div>
-    );
+    IDLE: 0, PLANNING: 1, GATHERING: 2, CALCULATING: 2.5, VERIFYING: 2.8,
+    DRAFTING: 3, DEBATING: 4, REFINING: 4.5, FINALIZING: 5, COMPLETE: 6, ERROR: 6, PAUSED: 6
 };
 
 const LiveLog: React.FC<{ log: ExecutionStep[] }> = ({ log }) => {
@@ -106,10 +51,9 @@ const LiveLog: React.FC<{ log: ExecutionStep[] }> = ({ log }) => {
     );
 };
 
-
 export const FinancialAdvisorLoader: React.FC<FinancialAdvisorLoaderProps> = (props) => {
     const { stockSymbol, analysisPhase, agentStatuses, enabledAgents, executionLog } = props;
-    const currentPhaseIndex = phaseOrder[analysisPhase];
+    const currentPhaseProgress = phaseOrder[analysisPhase];
 
     const currentStatusText = useMemo(() => {
         const runningStep = executionLog.find(s => s.status === 'running');
@@ -118,16 +62,29 @@ export const FinancialAdvisorLoader: React.FC<FinancialAdvisorLoaderProps> = (pr
         if (analysisPhase === 'ERROR' || analysisPhase === 'PAUSED') return 'Status: Analysis Halted.';
         return 'Status: Initializing...';
     }, [executionLog, analysisPhase]);
-    
-    const isGatheringPhase = analysisPhase === 'GATHERING';
-    const gatheringAgents = agentConfigurations.filter(agent => enabledAgents?.[agent.key]);
 
-    const agentResults: Record<string, any> = {
-        esg: props.esgAnalysis, macro: props.macroAnalysis, news: props.newsAnalysis,
-        leadership: props.leadershipAnalysis, competitive: props.competitiveAnalysis,
-        sector: props.sectorAnalysis, calendar: props.corporateCalendarAnalysis,
-        sentiment: props.marketSentimentAnalysis,
-    };
+    const activeAgents = useMemo(() => {
+        const baseAgents = agentConfigurations.filter(agent => enabledAgents?.[agent.key]);
+        const dataExtractor = { key: 'data_extractor', name: 'Financial Data', icon: <DatabaseIcon className="h-6 w-6 text-gray-500" /> };
+        return [...baseAgents, dataExtractor];
+    }, [enabledAgents]);
+    
+    const nodeRadius = 30;
+    const orbitRadius = 130;
+    const svgSize = 320;
+    const center = svgSize / 2;
+    
+    const isCentralNodeActive = ['PLANNING', 'DRAFTING', 'FINALIZING', 'DEBATING', 'REFINING', 'CALCULATING', 'VERIFYING'].includes(analysisPhase);
+
+    const nodes = useMemo(() => {
+        return activeAgents.map((agent, i) => {
+            const angle = (i / activeAgents.length) * 2 * Math.PI - Math.PI / 2;
+            const cx = center + orbitRadius * Math.cos(angle);
+            const cy = center + orbitRadius * Math.sin(angle);
+            return { ...agent, cx, cy };
+        });
+    }, [activeAgents, center, orbitRadius]);
+
 
     return (
         <div className="py-6 animate-fade-in" aria-live="polite" aria-label={`Analyzing ${stockSymbol}...`}>
@@ -142,43 +99,85 @@ export const FinancialAdvisorLoader: React.FC<FinancialAdvisorLoaderProps> = (pr
 
             <div className="w-full max-w-2xl mx-auto mb-4">
                 <div className="flex justify-between">
-                    {mainPhases.map((phase, index) => (
-                        <div key={phase.key} className="text-center text-xs text-slate-500 dark:text-slate-400 w-1/6">
+                    {mainPhases.map((phase) => (
+                        <div key={phase.key} className="text-center text-xs text-slate-500 dark:text-slate-400 flex-1">
                             {phase.text}
                         </div>
                     ))}
                 </div>
-                <div className="flex h-2.5 rounded-full bg-gray-200 dark:bg-slate-700 mt-1">
-                    {mainPhases.map((phase, index) => {
-                        const phaseIndex = index + 1;
-                        const isComplete = currentPhaseIndex > phaseIndex;
-                        const isActive = currentPhaseIndex === phaseIndex;
-                        return (
-                            <div key={phase.key} className="w-1/6 px-0.5">
-                                <div className={`h-full rounded-full ${isActive || isComplete ? 'bg-blue-500' : ''}`}>
-                                    {isActive && <div className="h-full rounded-full bg-blue-400 animate-pulse" />}
-                                    {isComplete && !isActive && <div className="h-full rounded-full bg-blue-500 animate-fill-bar" />}
-                                </div>
-                            </div>
-                        );
-                    })}
+                <div className="w-full h-2.5 rounded-full bg-gray-200 dark:bg-slate-700 mt-1">
+                     <div 
+                        className="h-full rounded-full bg-blue-500 transition-all duration-500 ease-in-out" 
+                        style={{ width: `${(currentPhaseProgress / mainPhases.length) * 100}%` }}
+                     />
                 </div>
             </div>
             
             <p className="text-center text-sm font-semibold text-slate-600 dark:text-slate-300 h-5 mb-6">{currentStatusText}</p>
+            
+            <div className="relative flex justify-center items-center" style={{ height: `${svgSize}px` }}>
+                <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`} className="overflow-visible">
+                    {/* Lines */}
+                    {nodes.map(node => {
+                        const status = agentStatuses[node.key as string];
+                        const isComplete = status && !status.isLoading && !status.error;
+                        return (
+                            <g key={`line-${node.key}`}>
+                                <path 
+                                    d={`M ${center} ${center} L ${node.cx} ${node.cy}`} 
+                                    className={isComplete ? "stroke-green-400/50" : "stroke-slate-200 dark:stroke-slate-700"}
+                                    strokeWidth="1.5" 
+                                />
+                                {isComplete && (
+                                     <path 
+                                        d={`M ${node.cx} ${node.cy} L ${center} ${center}`} 
+                                        className="stroke-green-400 animate-shimmer" 
+                                        strokeWidth="2" 
+                                        strokeDasharray="10 20"
+                                    />
+                                )}
+                            </g>
+                        );
+                    })}
+                    
+                    {/* Agent Nodes */}
+                    {nodes.map(node => {
+                        const status = agentStatuses[node.key as string];
+                        const isLoading = status?.isLoading;
+                        const isError = !!status?.error;
+                        const isComplete = status && !isLoading && !isError;
 
-            <div className={`transition-opacity duration-500 ${isGatheringPhase ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-                <div className="w-full max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {gatheringAgents.map(agent => (
-                        <AgentProgressCard key={agent.key} agentConfig={agent} status={agentStatuses[agent.key]} result={agentResults[agent.key]} />
-                    ))}
-                    <AgentProgressCard
-                        key="data_extractor"
-                        agentConfig={{ key: 'data_extractor', name: 'Financial Data', icon: <DatabaseIcon className="h-6 w-6 text-gray-500" /> }}
-                        status={agentStatuses.data_extractor}
-                        result={null}
-                    />
-                </div>
+                        let strokeColor = "stroke-slate-300 dark:stroke-slate-600";
+                        if (isLoading) strokeColor = "stroke-blue-500";
+                        else if (isError) strokeColor = "stroke-red-500";
+                        else if (isComplete) strokeColor = "stroke-green-500";
+
+                        return (
+                            <g key={`node-${node.key}`} transform={`translate(${node.cx}, ${node.cy})`}>
+                                <circle r={nodeRadius} className={`fill-white dark:fill-slate-800 ${strokeColor}`} strokeWidth="2" />
+                                {isLoading && <circle r={nodeRadius} className={`fill-none ${strokeColor} animate-pulse-node`} strokeWidth="4" />}
+                                <foreignObject x={-nodeRadius} y={-nodeRadius} width={nodeRadius*2} height={nodeRadius*2}>
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-center p-1">
+                                        <div className={`text-slate-600 dark:text-slate-300 ${isError && 'text-red-500'} ${isComplete && 'text-green-500'}`}>{node.icon}</div>
+                                        <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 leading-tight mt-1">{node.name}</div>
+                                    </div>
+                                </foreignObject>
+                            </g>
+                        );
+                    })}
+                    
+                    {/* Central Node */}
+                     <g transform={`translate(${center}, ${center})`} className={isCentralNodeActive ? 'animate-pulse-central-node' : ''}>
+                        <circle r={nodeRadius + 10} className="fill-blue-50 dark:fill-blue-900/30" />
+                        <circle r={nodeRadius + 10} className="stroke-blue-200 dark:stroke-blue-500/50" strokeWidth="2" fill="none" />
+                        <foreignObject x={-nodeRadius-10} y={-nodeRadius-10} width={(nodeRadius+10)*2} height={(nodeRadius+10)*2}>
+                            <div className="w-full h-full flex flex-col items-center justify-center text-center p-1">
+                                <div className="text-blue-600 dark:text-blue-400"><FinancialAdvisorIcon className="h-8 w-8"/></div>
+                                <div className="text-xs font-bold text-blue-800 dark:text-blue-300 leading-tight mt-1">Financial<br/>Analyst</div>
+                            </div>
+                        </foreignObject>
+                    </g>
+                </svg>
             </div>
             
             <LiveLog log={executionLog} />
