@@ -1,11 +1,11 @@
 import React from 'react';
-import { StockAnalysis, EsgAnalysis, NewsAnalysis, LeadershipAnalysis, CalculatedMetric } from '../types';
+import { StockAnalysis, EsgAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CalculatedMetric } from '../types';
 import { CheckCircleIcon, ArrowTrendingUpIcon, InformationCircleIcon, ExclamationTriangleIcon } from './IconComponents';
 
 interface KeyTakeawaysProps {
     financialAnalysis: StockAnalysis;
     esgAnalysis: EsgAnalysis | null;
-    newsAnalysis: NewsAnalysis | null;
+    marketIntelligenceAnalysis: MarketIntelligenceAnalysis | null;
     leadershipAnalysis: LeadershipAnalysis | null;
     currencySymbol: string;
 }
@@ -34,7 +34,7 @@ const Takeaway: React.FC<{ icon: React.ReactNode; children: React.ReactNode }> =
 export const KeyTakeaways: React.FC<KeyTakeawaysProps> = ({
     financialAnalysis,
     esgAnalysis,
-    newsAnalysis,
+    marketIntelligenceAnalysis,
     leadershipAnalysis,
     currencySymbol,
 }) => {
@@ -67,19 +67,19 @@ export const KeyTakeaways: React.FC<KeyTakeawaysProps> = ({
         });
     }
 
-    // News Sentiment Takeaway
-    if (newsAnalysis && newsAnalysis.overall_sentiment !== 'N/A') {
-        const sentiment = newsAnalysis.overall_sentiment.toLowerCase();
+    // Market Intelligence Takeaway
+    if (marketIntelligenceAnalysis && marketIntelligenceAnalysis.overall_sentiment !== 'N/A') {
+        const sentiment = marketIntelligenceAnalysis.overall_sentiment.toLowerCase();
         let newsText = `Recent news sentiment is broadly **${sentiment}**.`;
         
-        if (newsAnalysis.key_articles.length > 0) {
-            const topArticle = newsAnalysis.key_articles[0];
+        if (marketIntelligenceAnalysis.key_articles.length > 0) {
+            const topArticle = marketIntelligenceAnalysis.key_articles[0];
             newsText += ` Key stories include themes around "${topArticle.title}".`;
         }
         
         const icon = sentiment === 'positive' 
             ? <InformationCircleIcon className="h-5 w-5 text-sky-500 dark:text-sky-400" /> 
-            : <ExclamationTriangleIcon />;
+            : <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 dark:text-amber-400" />;
 
         takeaways.push({
             icon: icon,

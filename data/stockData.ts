@@ -1,4 +1,4 @@
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, RiskAnalysis, CompetitiveAnalysis } from '../types';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, RiskAnalysis, CompetitiveAnalysis } from '../types';
 
 export const mockCompetitiveAnalysis: CompetitiveAnalysis = {
     market_leader: 'MegaCorp',
@@ -54,21 +54,26 @@ export const mockLeadershipAnalysis: LeadershipAnalysis = {
     sources: [{ uri: 'https://example.com/leadership', title: 'MockCorp Leadership Page' }],
 };
 
-export const mockNewsAnalysis: NewsAnalysis = {
+// FIX: This mock data was for the deprecated `NewsAnalysis` type. It's updated to be `MarketIntelligenceAnalysis`.
+export const mockMarketIntelligenceAnalysis: MarketIntelligenceAnalysis = {
     overall_sentiment: 'Positive',
-    summary: 'Recent news coverage has been largely positive, focusing on the successful launch of a new product line and strong quarterly earnings. Minor concerns about supply chain are present but overshadowed by positive outlook.',
+    intelligence_summary: 'Recent news coverage has been largely positive, focusing on the successful launch of a new product line and strong quarterly earnings. Minor concerns about supply chain are present but overshadowed by positive outlook.',
     key_articles: [
         { title: 'MockCorp Launches Innovative New Product', summary: 'The new product is expected to capture significant market share.', sentiment: 'Positive', source_url: 'https://example.com/news1' },
         { title: 'MockCorp Reports Record Profits', summary: 'Exceeds analyst expectations for the third consecutive quarter.', sentiment: 'Positive', source_url: 'https://example.com/news2' },
         { title: 'Supply Chain Hurdles Ahead?', summary: 'Experts weigh in on potential logistics challenges for MockCorp.', sentiment: 'Neutral', source_url: 'https://example.com/news3' },
     ],
-    regulatory_risks: [
+    regulatory_and_geopolitical_risks: [
         {
             description: "MockCorp is monitoring new data privacy regulations that may impact its customer data strategies.",
             severity: "Low",
             source_url: "https://example.com/privacy-law-update"
         }
     ],
+    insider_trading_summary: "No significant insider activity reported in the last quarter.",
+    key_positive_points: ["Strong quarterly earnings", "Successful new product launch"],
+    key_negative_points: ["Potential supply chain disruptions"],
+    major_holders: [{ name: "Global Investment Fund", stake: "8.2%" }],
     sources: [{ uri: 'https://example.com/news', title: 'General News Search for MockCorp' }],
 };
 
@@ -120,15 +125,17 @@ export const mockStockAnalysis: StockAnalysis = {
             'Exposure to regulatory changes in international markets.'
         ]
     },
+    // FIX: Replaced `news_summary` and `market_sentiment_summary` with the consolidated `market_intelligence_summary`.
     contextual_inputs: {
         esg_summary: 'MockCorp has a strong ESG profile with an AA rating.',
         macroeconomic_summary: 'The macroeconomic environment is favorable for the tech sector.',
-        news_summary: 'Recent news has been positive, highlighting product innovation.',
+        market_intelligence_summary: 'Recent news has been positive, highlighting product innovation, and overall market sentiment is positive with strong institutional buying.',
         leadership_summary: 'The leadership team is experienced and stable.',
         competitive_summary: 'The market is competitive, but MockCorp has a strong niche.',
         sector_summary: 'The overall sector outlook is positive, driven by digital transformation trends.',
         corporate_calendar_summary: 'Upcoming earnings call is a key catalyst to watch.',
-        market_sentiment_summary: 'Overall market sentiment is positive, with strong institutional buying.',
+        technical_analysis_summary: 'The stock is in a clear uptrend, trading above its key moving averages.',
+        contrarian_summary: 'While the outlook is positive, high valuation and potential for increased competition are points of concern.',
     },
     justification: {
         nutshell_summary: 'Investing in MockCorp is like betting on a well-managed ship navigating favorable seas. Strong leadership and positive market trends make it a compelling choice.',

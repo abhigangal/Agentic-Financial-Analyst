@@ -9,6 +9,7 @@ interface CompetitiveResultDisplayProps {
   result: CompetitiveAnalysis;
   stockSymbol: string;
   calculatedMetrics: Record<string, CalculatedMetric>;
+  currencySymbol: string;
 }
 
 const parseMetricValue = (metric: FinancialMetrics[keyof FinancialMetrics]): number | null => {
@@ -71,12 +72,12 @@ const MetricCell: React.FC<{
 };
 
 
-const metricsConfig: { key: keyof FinancialMetrics, label: string, tooltip: string }[] = [
-    { key: 'market_cap', label: 'Market Cap', tooltip: 'The total market value of a company\'s outstanding shares.' },
-    { key: 'pe_ratio', label: 'P/E Ratio', tooltip: 'Price-to-Earnings ratio; a lower P/E can indicate a stock is undervalued.' },
-    { key: 'pb_ratio', label: 'P/B Ratio', tooltip: 'Price-to-Book ratio; used to compare a company\'s market value to its book value.' },
-    { key: 'debt_to_equity', label: 'Debt/Equity', tooltip: 'Measures a company\'s financial leverage; a higher ratio indicates more debt.' },
-    { key: 'roe', label: 'ROE (%)', tooltip: 'Return on Equity; measures how effectively management is using a company’s assets to create profits.' },
+const metricsConfig: { key: keyof FinancialMetrics, label: string, tooltip: string, isCurrency: boolean }[] = [
+    { key: 'market_cap', label: 'Market Cap', tooltip: 'The total market value of a company\'s outstanding shares.', isCurrency: true },
+    { key: 'pe_ratio', label: 'P/E Ratio', tooltip: 'Price-to-Earnings ratio; a lower P/E can indicate a stock is undervalued.', isCurrency: false },
+    { key: 'pb_ratio', label: 'P/B Ratio', tooltip: 'Price-to-Book ratio; used to compare a company\'s market value to its book value.', isCurrency: false },
+    { key: 'debt_to_equity', label: 'Debt/Equity', tooltip: 'Measures a company\'s financial leverage; a higher ratio indicates more debt.', isCurrency: false },
+    { key: 'roe', label: 'ROE (%)', tooltip: 'Return on Equity; measures how effectively management is using a company’s assets to create profits.', isCurrency: false },
 ];
 
 const StrengthsWeaknesses: React.FC<{ competitor: Competitor }> = ({ competitor }) => (
@@ -105,7 +106,7 @@ const StrengthsWeaknesses: React.FC<{ competitor: Competitor }> = ({ competitor 
 );
 
 
-export const CompetitiveResultDisplay: React.FC<CompetitiveResultDisplayProps> = ({ result, stockSymbol, calculatedMetrics }) => {
+export const CompetitiveResultDisplay: React.FC<CompetitiveResultDisplayProps> = ({ result, stockSymbol, calculatedMetrics, currencySymbol }) => {
   const { market_leader, competitive_summary, competitors, sources } = result;
   
   const targetCompanyMetrics: FinancialMetrics = {
@@ -216,7 +217,7 @@ export const CompetitiveResultDisplay: React.FC<CompetitiveResultDisplayProps> =
                                   metric={entity.metrics?.[metric.key] ?? null}
                                   benchmark={calculatedIndustryAverageMetrics?.[metric.key] ?? null}
                                   metricType={metric.key}
-                                  currencySymbol={'$'}
+                                  currencySymbol={metric.isCurrency ? currencySymbol : ''}
                               />
                           ))}
                       </tr>
@@ -240,7 +241,7 @@ export const CompetitiveResultDisplay: React.FC<CompetitiveResultDisplayProps> =
                                 {metricsConfig.map(metric => (
                                     <li key={metric.key} className="flex justify-between items-center text-sm py-1">
                                         <span className="text-slate-500 dark:text-slate-400">{metric.label}</span>
-                                        <MetricWithProof metric={entity.metrics?.[metric.key] ?? null} currencySymbol={'$'} />
+                                        <MetricWithProof metric={entity.metrics?.[metric.key] ?? null} currencySymbol={metric.isCurrency ? currencySymbol : ''} />
                                     </li>
                                 ))}
                             </ul>

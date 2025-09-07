@@ -1,4 +1,5 @@
-import { AgentKey } from "./components/AnalysisConfiguration";
+// This file now contains the canonical AgentKey type.
+export type AgentKey = 'esg' | 'macro' | 'market_intel' | 'leadership' | 'competitive' | 'sector' | 'calendar' | 'contrarian';
 
 export interface GroundingSource {
   uri: string;
@@ -66,19 +67,10 @@ export interface NewsArticle {
   published_date?: string;
 }
 
-export interface RegulatoryRisk {
+export interface RegulatoryAndGeopoliticalRisk {
   description: string;
   severity: 'Low' | 'Medium' | 'High';
   source_url?: string;
-}
-
-export interface NewsAnalysis {
-  overall_sentiment: 'Positive' | 'Negative' | 'Neutral' | 'N/A';
-  summary: string;
-  key_articles: NewsArticle[];
-  regulatory_risks: RegulatoryRisk[];
-  sources?: GroundingSource[];
-  na_justifications?: { [key: string]: string; };
 }
 
 export interface ExecutiveProfile {
@@ -163,7 +155,8 @@ export interface CorporateCalendarAnalysis {
 export interface ChiefAnalystCritique {
   conflict_summary: string;
   remediation_question: string;
-  target_agent: 'ESG' | 'Macro' | 'News' | 'Leadership' | 'Competitive' | 'Sector' | 'Calendar' | 'Sentiment' | 'None';
+  // FIX: Updated to match the modern `AgentKey` type, removing deprecated 'News'/'Sentiment' and adding 'Contrarian'.
+  target_agent: 'ESG' | 'Macro' | 'Leadership' | 'Competitive' | 'Sector' | 'Calendar' | 'Contrarian' | 'None' | 'Market_Intel';
   reasoning: string;
 }
 
@@ -172,15 +165,48 @@ export interface InstitutionalHolder {
   stake: string; // e.g., "5.2%"
 }
 
-export interface MarketSentimentAnalysis {
+export interface MarketIntelligenceAnalysis {
   overall_sentiment: 'Positive' | 'Negative' | 'Neutral' | 'N/A';
-  sentiment_summary: string;
+  intelligence_summary: string;
+  key_articles: NewsArticle[];
+  regulatory_and_geopolitical_risks: RegulatoryAndGeopoliticalRisk[];
+  insider_trading_summary: string;
   key_positive_points: string[];
   key_negative_points: string[];
   major_holders: InstitutionalHolder[];
   sources?: GroundingSource[];
   na_justifications?: { [key: string]: string; };
 }
+
+export interface TechnicalAnalysis {
+  trend: 'Uptrend' | 'Downtrend' | 'Sideways' | 'N/A';
+  summary: string;
+  support_level: string;
+  resistance_level: string;
+  moving_averages_summary: string;
+  indicators_summary: string; // e.g., RSI, MACD
+  sources?: GroundingSource[];
+}
+
+export interface ContrarianAnalysis {
+  bear_case_summary: string;
+  key_contrarian_points: string[];
+  undervalued_positive_catalysts: string[];
+}
+
+export interface RawFinancials {
+    current_price: number | null;
+    eps: number | null; // Earnings Per Share
+    book_value_per_share: number | null;
+    total_debt: number | null;
+    total_equity: number | null;
+}
+
+export interface DataAndTechnicalsAnalysis {
+  raw_financials: RawFinancials;
+  technical_analysis: TechnicalAnalysis;
+}
+
 
 export interface StockAnalysis {
   stock_symbol: string;
@@ -205,12 +231,13 @@ export interface StockAnalysis {
   contextual_inputs: {
     esg_summary: string;
     macroeconomic_summary: string;
-    news_summary: string;
+    market_intelligence_summary: string;
     leadership_summary: string;
     competitive_summary: string;
     sector_summary: string;
     corporate_calendar_summary: string;
-    market_sentiment_summary: string;
+    technical_analysis_summary: string;
+    contrarian_summary: string;
   };
   justification: {
     nutshell_summary: string;
@@ -222,12 +249,16 @@ export interface StockAnalysis {
     financial_ratios_summary: string;
     ownership_summary: string; // Renamed from shareholding_pattern_summary
     exit_strategy: string;
-    technical_summary: string; // Renamed from pvt_trend_analysis
+    // Note: The original 'technical_summary' is the Financial Advisor's own summary,
+    // not to be confused with the output from the dedicated Technical Analysis agent.
+    technical_summary: string; 
     improvement_suggestions: string; // Renamed from information_better_results
   };
   sources?: GroundingSource[];
   na_justifications?: { [key: string]: string; };
   chiefAnalystCritique?: ChiefAnalystCritique & { refined_answer?: string };
+  technicalAnalysis?: TechnicalAnalysis | null;
+  contrarianAnalysis?: ContrarianAnalysis | null;
 }
 
 export interface ExpertPick {
@@ -263,7 +294,7 @@ export interface User {
 export interface ExecutionStep {
   id: number;
   timestamp: string;
-  agentKey: AgentKey | 'financial' | 'data_extractor' | 'chief' | 'local';
+  agentKey: AgentKey | 'financial' | 'data_extractor' | 'chief' | 'local' | 'data_and_technicals';
   stepName: string;
   status: 'running' | 'complete' | 'error' | 'paused';
   input?: string;
@@ -271,12 +302,4 @@ export interface ExecutionStep {
   confidence?: 'high' | 'moderate' | 'low' | number;
   sources?: GroundingSource[];
   remediation?: { message: string; action: string; };
-}
-
-export interface RawFinancials {
-    current_price: number | null;
-    eps: number | null; // Earnings Per Share
-    book_value_per_share: number | null;
-    total_debt: number | null;
-    total_equity: number | null;
 }

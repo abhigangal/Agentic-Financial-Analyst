@@ -1,14 +1,14 @@
 import React from 'react';
-import { NewsResultDisplay } from './NewsResultDisplay';
-import { NewsAnalysis } from '../../types';
+import { MarketIntelligenceResultDisplay } from './NewsResultDisplay';
+import { MarketIntelligenceAnalysis } from '../../types';
 
-interface NewsAgentCardProps {
-  result: NewsAnalysis | null;
+interface MarketIntelligenceAgentCardProps {
+  result: MarketIntelligenceAnalysis | null;
 }
 
-export const NewsAgentCard: React.FC<NewsAgentCardProps> = ({ result }) => {
+export const MarketIntelligenceAgentCard: React.FC<MarketIntelligenceAgentCardProps> = ({ result }) => {
   if (result) {
-    return <NewsResultDisplay result={result} />;
+    return <MarketIntelligenceResultDisplay result={result} />;
   }
 
   return null;

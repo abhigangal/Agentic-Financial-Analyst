@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { AnalysisCacheItem, CACHE_TTL_MS } from '../App';
-import { DatabaseIcon, LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, PlayCircleIcon, ChatBubbleLeftRightIcon } from './IconComponents';
-
-export type AgentKey = 'esg' | 'macro' | 'news' | 'leadership' | 'competitive' | 'sector' | 'calendar' | 'sentiment';
+import { AgentKey } from '../types';
+import { DatabaseIcon, LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, PlayCircleIcon, ChatBubbleLeftRightIcon, ScaleIcon, ShieldExclamationIcon } from './IconComponents';
 
 interface AgentConfig {
     key: AgentKey;
@@ -14,12 +13,12 @@ interface AgentConfig {
 export const agentConfigurations: AgentConfig[] = [
     { key: 'esg', name: 'ESG Profile', description: 'Analyzes Environmental, Social, and Governance factors.', icon: <LeafIcon className="h-6 w-6 text-green-500" /> },
     { key: 'macro', name: 'Macro Trends', description: 'Assesses broad economic factors affecting the market.', icon: <GlobeAltIcon className="h-6 w-6 text-sky-500" /> },
-    { key: 'news', name: 'Recent News', description: 'Gathers the latest news and performs sentiment analysis.', icon: <NewspaperIcon className="h-6 w-6 text-blue-500" /> },
+    { key: 'market_intel', name: 'Market Intelligence', description: 'Synthesizes news, sentiment, and insider trends.', icon: <ChatBubbleLeftRightIcon className="h-6 w-6 text-teal-500" /> },
     { key: 'leadership', name: 'Leadership Team', description: 'Evaluates the executive team, board, and recent changes.', icon: <UserGroupIcon className="h-6 w-6 text-purple-500" /> },
     { key: 'competitive', name: 'Competition', description: 'Analyzes the competitive landscape and key rivals.', icon: <TrophyIcon className="h-6 w-6 text-amber-500" /> },
     { key: 'sector', name: 'Sector Outlook', description: 'Identifies tailwinds and headwinds for the industry.', icon: <BuildingOfficeIcon className="h-6 w-6 text-indigo-500" /> },
     { key: 'calendar', name: 'Corp. Calendar', description: 'Finds upcoming corporate events, earnings, and dates.', icon: <CalendarDaysIcon className="h-6 w-6 text-rose-500" /> },
-    { key: 'sentiment', name: 'Market Sentiment', description: 'Gauges overall market sentiment and major holders.', icon: <ChatBubbleLeftRightIcon className="h-6 w-6 text-teal-500" /> }
+    { key: 'contrarian', name: 'Contrarian Case', description: 'Challenges the consensus and builds a bear case.', icon: <ShieldExclamationIcon className="h-6 w-6 text-red-500" /> }
 ];
 
 const allAgentsEnabled = agentConfigurations.reduce((acc, agent) => {

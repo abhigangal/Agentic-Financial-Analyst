@@ -57,14 +57,14 @@ SCHEMA:
 }
 `; // Short enums + caps prevent rambling while preserving fidelity. [1][10]
 
-export const NEWS_AGENT_PROMPT = `
-ROLE: News & Risk Analyst ([Market Name]).
-TASK: Identify 3–5 key news and regulatory items (last 15 days).
+export const MARKET_INTELLIGENCE_AGENT_PROMPT = `
+ROLE: Market Intelligence Analyst ([Market Name]).
+TASK: Synthesize market sentiment & key news. Focus on news (last 15 days), regulatory/geopolitical risks, expert opinions, institutional ownership, and insider trading.
 ${UNIVERSAL_RULES}
 SCHEMA:
 {
   "overall_sentiment": "'Positive'|'Negative'|'Neutral'|'N/A'",
-  "summary": "string (max 320 chars)",
+  "intelligence_summary": "string (max 320 chars)",
   "key_articles": [
     {
       "title": "string (max 120 chars)",
@@ -74,16 +74,22 @@ SCHEMA:
       "published_date": "ISO date|null"
     }
   ], // 0–5 items
-  "regulatory_risks": [
+  "regulatory_and_geopolitical_risks": [
     {
       "description": "string (max 200 chars)",
       "severity": "'Low'|'Medium'|'High'",
       "source_url": "string|null"
     }
-  ], // 0–5 items
+  ], // 0–3 items
+  "insider_trading_summary": "string (max 240 chars, e.g., 'Recent buying by CFO', 'No significant insider activity')",
+  "key_positive_points": ["string"],
+  "key_negative_points": ["string"],
+  "major_holders": [
+    { "name": "string", "stake": "string (e.g., '5.2%')" }
+  ], // 0-5 items
   "na_justifications": "object|null"
 }
-`; // Array caps and concise fields tighten outputs reliably. [9][10]
+`;
 
 export const LEADERSHIP_AGENT_PROMPT = `
 ROLE: Leadership & Governance Analyst.
@@ -158,51 +164,56 @@ SCHEMA:
 }
 `; // Move format rules into schema to cut prose. [9][1]
 
-export const MARKET_SENTIMENT_AGENT_PROMPT = `
-ROLE: Market Sentiment Analyst ([Market Name]).
-TASK: Synthesize market sentiment for the company. Focus on recent news (last 7 days), expert opinions (analysts, influential investors), and key institutional ownership.
+export const DATA_AND_TECHNICALS_AGENT_PROMPT = `
+ROLE: Data & Technicals Analyst ([Screener Name]).
+TASK: From the given URL, extract raw financials. Then, perform a technical analysis of recent price action, chart patterns, and key indicators (RSI, MACD, Moving Averages).
 ${UNIVERSAL_RULES}
+Notes for financials: eps = Earnings per share; book_value_per_share = Book value; total_debt = Balance Sheet total debt; total_equity = Total Reserves + Share Capital.
 SCHEMA:
 {
-  "overall_sentiment": "'Positive'|'Negative'|'Neutral'|'N/A'",
-  "sentiment_summary": "string (max 320 chars)",
-  "key_positive_points": ["string"],
-  "key_negative_points": ["string"],
-  "major_holders": [
-    { "name": "string", "stake": "string (e.g., '5.2%')" }
-  ],
-  "na_justifications": "object|null"
+  "raw_financials": {
+    "current_price": "number|null",
+    "eps": "number|null",
+    "book_value_per_share": "number|null",
+    "total_debt": "number|null",
+    "total_equity": "number|null"
+  },
+  "technical_analysis": {
+    "trend": "'Uptrend'|'Downtrend'|'Sideways'|'N/A'",
+    "summary": "string (max 320 chars)",
+    "support_level": "string (e.g., '145.50 (50-day MA)')",
+    "resistance_level": "string (e.g., '160.00 (Recent High)')",
+    "moving_averages_summary": "string (max 240 chars, e.g., 'Price is above 50-day MA, indicating short-term strength')",
+    "indicators_summary": "string (max 240 chars, e.g., 'RSI is neutral at 55; MACD shows a bullish crossover')"
+  }
 }
 `;
 
+export const CONTRARIAN_AGENT_PROMPT = `
+ROLE: Contrarian "Red Team" Analyst.
+TASK: You are a skeptical hedge fund analyst. Your goal is to challenge the consensus view provided and build the strongest possible bear case. Identify overlooked risks, flawed assumptions, and potential negative catalysts.
+${UNIVERSAL_RULES}
+SCHEMA:
+{
+  "bear_case_summary": "string (max 400 chars, e.g., 'Despite bullish sentiment, the company faces significant margin pressure...')",
+  "key_contrarian_points": ["string"],
+  "undervalued_positive_catalysts": ["string"]
+}
+`;
 
 export const CHIEF_ANALYST_AGENT_PROMPT = `
 ROLE: Chief Investment Analyst (skeptical).
-TASK: Find the most critical conflict and ask one targeted question to a single agent.
+TASK: Find the most critical conflict in the provided agent reports and ask one targeted question to a single agent to resolve it.
+CONTEXT: The following agents ran successfully: [AGENT_LIST].
 ${UNIVERSAL_RULES}
 SCHEMA:
 {
   "conflict_summary": "string (max 240 chars)",
   "remediation_question": "string (max 240 chars)",
-  "target_agent": "'ESG'|'Macro'|'News'|'Leadership'|'Competitive'|'Sector'|'Calendar'|'Sentiment'|'None'",
+  "target_agent": "[AGENT_LIST_ENUM]",
   "reasoning": "string (max 240 chars)"
 }
 `; // Focused fields + caps sharpen critique, reduce tokens. [1][10]
-
-export const FINANCIAL_DATA_EXTRACTOR_AGENT_PROMPT = `
-ROLE: Financial Data Extractor ([Screener Name]).
-TASK: From the given URL, extract raw numbers only; no calculations.
-${UNIVERSAL_RULES}
-Notes: eps = Earnings per share; book_value_per_share = Book value; total_debt = Balance Sheet total debt; total_equity = Total Reserves + Share Capital.
-SCHEMA:
-{
-  "current_price": "number|null",
-  "eps": "number|null",
-  "book_value_per_share": "number|null",
-  "total_debt": "number|null",
-  "total_equity": "number|null"
-}
-`; // Numeric-only extraction eliminates computation drift. [1][9]
 
 export const FINANCIAL_AGENT_PROMPT = `
 ROLE: Senior Financial & Risk Analyst ([Market Name]).
@@ -210,44 +221,48 @@ TASK: Synthesize specialist context and verified metrics into an investment thes
 [CHIEF_ANALYST_CRITIQUE]
 ${UNIVERSAL_RULES}
 Rules: Currency India = 'Rs.'; Recommendations: 'Strong Buy'|'Buy'|'Hold'|'Sell'|'Strong Sell'|'N/A'; Sentiment: 'Strong Bullish'|'Bullish'|'Neutral'|'Bearish'|'Strong Bearish'|'N/A'.
-CRITICAL RULE 1: The 'target_price' (both short_term and long_term) and 'stop_loss' fields MUST be populated with a specific numeric value. DO NOT use 'null' for these fields. Derive a plausible price using technical analysis (e.g., support/resistance levels) or fundamental analysis (e.g., P/E multiples). State your methodology in the justification.
-CRITICAL RULE 2: For any 'Buy' or 'Hold' recommendation, the 'stop_loss' price MUST be lower than the 'current_price'. For any 'Sell' recommendation, it must be higher.
+IMPORTANT: 'target_price' and 'stop_loss' MUST be a specific number. Do not use 'N/A'. Estimate if necessary.
+IMPORTANT: The 'stop_loss' value MUST be less than the 'current_price'.
 SCHEMA:
 {
-  "stock_symbol": "string", "share_name": "string", "current_price": "number|null", "price_change": "number|null", "price_change_percentage": "string|null", "last_updated": "ISO date",
-  "overall_sentiment": "enum", "recommendation": "enum", "confidence_score": "'high'|'moderate'|'low'",
-  "investment_horizon": { "short_term": "enum", "long_term": "enum" },
-  "target_price": { "short_term": "number", "long_term": "number" }, "stop_loss": "number",
-  "risk_analysis": {
-    "risk_score": "number (0–100)", "risk_level": "'Low'|'Moderate'|'High'|'Very High'",
-    "summary": "string (max 300 chars)",
-    "key_risk_factors": ["string"] // 3–5
-  },
-  "contextual_inputs": {
-    "esg_summary": "string", "macroeconomic_summary": "string", "news_summary": "string",
-    "leadership_summary": "string", "competitive_summary": "string", "sector_summary": "string",
-    "corporate_calendar_summary": "string", "market_sentiment_summary": "string"
-  },
-  "justification": {
-    "nutshell_summary": "string (max 200 chars)",
-    "overall_recommendation": "string (max 500 chars)",
-    "confidence_rationale": "string (max 240 chars)",
-    "profit_and_loss_summary": "string (max 240 chars)",
-    "balance_sheet_summary": "string (max 240 chars)",
-    "cash_flow_summary": "string (max 240 chars)",
-    "financial_ratios_summary": "string (max 240 chars)",
-    "ownership_summary": "string (max 240 chars)",
-    "exit_strategy": "string (max 180 chars)",
-    "technical_summary": "string (max 240 chars)",
-    "improvement_suggestions": "string (max 200 chars)"
-  },
-  "na_justifications": "object|null"
+    "stock_symbol": "string",
+    "share_name": "string",
+    "current_price": "number|null",
+    "price_change": "number|null",
+    "price_change_percentage": "string|null (e.g., '+1.25%')",
+    "last_updated": "ISO date",
+    "overall_sentiment": "enum",
+    "recommendation": "enum",
+    "confidence_score": "'high'|'moderate'|'low'",
+    "investment_horizon": { "short_term": "enum", "long_term": "enum" },
+    "target_price": { "short_term": "number", "long_term": "number" },
+    "stop_loss": "number",
+    "risk_analysis": {
+        "risk_score": "number (0-100)",
+        "risk_level": "'Low'|'Moderate'|'High'|'Very High'",
+        "summary": "string (max 280 chars)",
+        "key_risk_factors": ["string"]
+    },
+    "justification": {
+        "nutshell_summary": "string (max 200 chars, metaphoric)",
+        "overall_recommendation": "string (max 600 chars)",
+        "confidence_rationale": "string (max 400 chars)",
+        "profit_and_loss_summary": "string (max 400 chars)",
+        "balance_sheet_summary": "string (max 400 chars)",
+        "cash_flow_summary": "string (max 400 chars)",
+        "financial_ratios_summary": "string (max 400 chars)",
+        "ownership_summary": "string (max 400 chars)",
+        "exit_strategy": "string (max 300 chars)",
+        "technical_summary": "string (max 300 chars)",
+        "improvement_suggestions": "string (max 300 chars)"
+    },
+    "na_justifications": "object|null"
 }
-`; // Response-length control and enums stabilize output and cost. [10][1]
+`;
 
 export const MARKET_VOICES_AGENT_PROMPT = `
 ROLE: Market Voices Analyst ([Market Name]).
-TASK: Up to 5 recent recommendations (last 15 days) from the provided experts.
+TASK: For each listed expert, find 1-3 recent (last 15 days) stock recommendations or significant portfolio changes. If no direct recommendation is found, infer one from their recent commentary or public holdings with a confidence score.
 ${UNIVERSAL_RULES}
 SCHEMA:
 {
@@ -259,29 +274,22 @@ SCHEMA:
           "stock_symbol": "string",
           "company_name": "string",
           "recommendation_type": "'Buy'|'Sell'|'Hold'|'Accumulate'|'N/A'|'Outperform'|'Underperform'|'Neutral'",
-          "summary": "string (max 220 chars; state if inferred)",
+          "summary": "string (max 250 chars)",
           "source_url": "string",
           "published_date": "ISO date|null",
           "is_inferred": "boolean",
-          "confidence_score": "number (0.0–1.0)"
+          "confidence_score": "number (0.0 to 1.0)"
         }
-      ] // 0–3 per expert
+      ]
     }
-  ] // up to 5 experts
+  ]
 }
-`; // Item caps + explicit inference handling improve precision. [1][9]
+`;
 
 export const SCENARIO_PLANNER_PROMPT = (stockContext: string) => `
-ROLE: Scenario Planner.
-TASK: What‑if analysis for ${stockContext} with explicit trade guidance.
-Be concise (≤130 words per scenario). Default to HOLD if low confidence; say what would change the view.
-Use markdown with bold labels and 5–7 bullets:
-- Assumptions (horizon, drivers)
-- Financial impact (rev, margin, CF, leverage; directional)
-- Valuation (multiples/DCF sensitivity; directional)
-- Stock view (direction/volatility; catalysts)
-- Recommendation (BUY/SELL/HOLD + rationale)
-- Trade expression (cash/options; hedge/pairs; risk; stops/targets ranges)
-- Monitoring (triggers, KPIs, prints)
-- Risk score (1–5), Conviction (Low/Med/High)
-`; // Tighter word cap and standardized bullets curb verbosity and improve usability. [1][7][10
+ROLE: AI Financial Scenario Planner.
+TASK: You are a conversational AI. Your goal is to help the user explore the potential impact of hypothetical scenarios on a specific stock. Use the provided stock context to inform your answers. Be concise and focus on the likely chain of events. Do not output JSON.
+CONTEXT:
+${stockContext}
+Start the conversation by introducing yourself and asking what scenario the user wants to explore.
+`;

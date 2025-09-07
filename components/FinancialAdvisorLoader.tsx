@@ -1,162 +1,187 @@
 import React, { useMemo } from 'react';
 import { AnalysisPhase } from '../../App';
 import { ExecutionStep } from '../../types';
+import { AgentKey } from '../types';
+import { LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, ChatBubbleLeftRightIcon, ManWalkingIcon, FinancialBuildingIcon, ScaleIcon, ShieldExclamationIcon } from './IconComponents';
 
-// --- Scene Components ---
+// --- Scene Primitives ---
 
-const SceneContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <div className="animate-scene-fade-in">
-        <svg width="400" height="250" viewBox="0 0 400 250">
-            {children}
-        </svg>
+const SceneContainer: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
+    <div className={`animate-scene-fade-in flex flex-col items-center justify-center text-center ${className} min-h-[200px]`}>
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">{title}</h3>
+        {children}
     </div>
 );
 
+// Reusable human-like agent figure for the Gathering scene
+const AgentFigure: React.FC<{
+    label: string;
+    IconComponent: React.FC<{ className?: string }>;
+    color: string;
+    animationClass: string;
+    animationDelay?: string;
+}> = ({ label, IconComponent, color, animationClass, animationDelay }) => (
+    <div
+        className={`flex flex-col items-center gap-2 ${animationClass}`}
+        style={{ animationDelay: animationDelay || '0s' }}
+    >
+        <div className="relative">
+            <ManWalkingIcon className="h-12 w-12" style={{ color: color }} />
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-slate-700 border-2 rounded-full flex items-center justify-center" style={{ borderColor: color }}>
+                <IconComponent className="h-3 w-3 text-white" />
+            </div>
+        </div>
+        <span className="text-xs font-semibold text-slate-300">{label}</span>
+    </div>
+);
+
+// FIX: Updated agent map to reflect the refactoring from news/sentiment/technical to market_intel.
+const agentIconMap: Record<AgentKey, { icon: React.FC<{ className?: string }>, color: string, name: string }> = {
+    esg: { icon: LeafIcon, color: '#22c55e', name: 'ESG' },
+    macro: { icon: GlobeAltIcon, color: '#0ea5e9', name: 'Macro' },
+    market_intel: { icon: NewspaperIcon, color: '#3b82f6', name: 'Market Intel' },
+    leadership: { icon: UserGroupIcon, color: '#a855f7', name: 'Leadership' },
+    competitive: { icon: TrophyIcon, color: '#f59e0b', name: 'Competition' },
+    sector: { icon: BuildingOfficeIcon, color: '#6366f1', name: 'Sector' },
+    calendar: { icon: CalendarDaysIcon, color: '#f43f5e', name: 'Calendar' },
+    contrarian: { icon: ShieldExclamationIcon, color: '#ef4444', name: 'Contrarian' },
+};
+
+// --- Individual Scene Components ---
+
 const PlanningScene = () => (
-    <SceneContainer>
-        <defs>
-            <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-                <stop offset="0%" style={{ stopColor: '#facc15', stopOpacity: 0.5 }} />
-                <stop offset="100%" style={{ stopColor: '#facc15', stopOpacity: 0 }} />
-            </radialGradient>
-        </defs>
-        {/* Desk */}
-        <path d="M50 200 H350" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        <path d="M100 200 V230" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        <path d="M300 200 V230" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        {/* Analyst */}
-        <circle cx="200" cy="150" r="15" fill="#3b82f6" />
-        <path d="M200 165 V185 H220 L220 200" stroke="#3b82f6" strokeWidth="4" fill="none" strokeLinecap="round" />
-        {/* Monitor */}
-        <rect x="230" y="150" width="60" height="40" rx="5" fill="#1e293b" stroke="#475569" strokeWidth="2" />
-        <path d="M240 160 L255 175 L265 165 L280 170" stroke="#22c55e" strokeWidth="1.5" fill="none" />
-        {/* Lightbulb */}
-        <g transform="translate(140, 130)">
-            <circle cx="0" cy="0" r="25" fill="url(#grad1)" className="animate-light-flicker" />
-            <path d="M0 -15 C -10 -25, 10 -25, 0 -15" fill="#facc15" />
-            <rect x="-5" y="-3" width="10" height="6" fill="#facc15" />
-        </g>
-        <text x="200" y="50" textAnchor="middle" fill="#94a3b8" fontSize="14" fontWeight="bold">PLANNING</text>
+    <SceneContainer title="Planning Analysis">
+        <div className="flex items-end gap-4">
+            <div className="animate-agent-slide-in-left">
+                <ManWalkingIcon className="h-20 w-20 text-blue-500" />
+            </div>
+            {/* Whiteboard */}
+            <div className="w-48 h-32 bg-slate-700 border-2 border-slate-600 rounded-md p-2 animate-agent-slide-in-right">
+                <div className="w-full h-1 bg-slate-500 rounded-full mb-2 animate-light-flicker" style={{animationDelay: '0.2s'}}></div>
+                <div className="w-3/4 h-1 bg-slate-500 rounded-full mb-2 animate-light-flicker" style={{animationDelay: '0.4s'}}></div>
+                <div className="w-full h-1 bg-slate-500 rounded-full mb-2 animate-light-flicker" style={{animationDelay: '0.6s'}}></div>
+                <div className="w-1/2 h-1 bg-slate-500 rounded-full animate-light-flicker" style={{animationDelay: '0.8s'}}></div>
+            </div>
+        </div>
     </SceneContainer>
 );
 
 const GatheringScene = () => (
-    <SceneContainer>
-        {/* Desk */}
-        <path d="M50 200 H350" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        <path d="M100 200 V230" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        <path d="M300 200 V230" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        {/* Main Analyst */}
-        <circle cx="200" cy="150" r="15" fill="#3b82f6" />
-        <path d="M200 165 V200" stroke="#3b82f6" strokeWidth="4" fill="none" strokeLinecap="round" />
-        {/* Document Stack */}
-        <rect x="185" y="185" width="30" height="15" rx="2" fill="#475569" />
-        <rect x="182" y="182" width="30" height="15" rx="2" fill="#64748b" />
-        <rect x="188" y="179" width="30" height="15" rx="2" fill="#94a3b8" />
+    <SceneContainer title="Gathering Intel">
+        <div className="w-full flex justify-center items-center gap-8">
+            <AgentFigure
+                label={agentIconMap.esg.name}
+                IconComponent={agentIconMap.esg.icon}
+                color={agentIconMap.esg.color}
+                animationClass="animate-agent-slide-in-left"
+                animationDelay="0s"
+            />
+             <AgentFigure
+                label={agentIconMap.macro.name}
+                IconComponent={agentIconMap.macro.icon}
+                color={agentIconMap.macro.color}
+                animationClass="animate-agent-slide-in-left"
+                animationDelay="0.2s"
+            />
+            <FinancialBuildingIcon className="h-20 w-20 text-slate-500 animate-scene-fade-in" style={{ animationDelay: '0.5s' }} />
+             <AgentFigure
+                label={agentIconMap.competitive.name}
+                IconComponent={agentIconMap.competitive.icon}
+                color={agentIconMap.competitive.color}
+                animationClass="animate-agent-slide-in-right"
+                animationDelay="0.2s"
+            />
+            {/* FIX: Replaced 'news' agent with the new 'market_intel' agent. */}
+            <AgentFigure
+                label={agentIconMap.market_intel.name}
+                IconComponent={agentIconMap.market_intel.icon}
+                color={agentIconMap.market_intel.color}
+                animationClass="animate-agent-slide-in-right"
+                animationDelay="0s"
+            />
+        </div>
+    </SceneContainer>
+);
 
-        {/* Agent 1 */}
-        <g className="animate-agent-slide-in-left" style={{ animationDelay: '0.2s' }}>
-            <circle cx="80" cy="155" r="10" fill="#22c55e" />
-            <path d="M80 165 V185" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" />
-            <rect x="90" y="160" width="10" height="12" rx="1" fill="#94a3b8" />
-        </g>
-        {/* Agent 2 */}
-        <g className="animate-agent-slide-in-left" style={{ animationDelay: '0.5s' }}>
-            <circle cx="120" cy="120" r="10" fill="#a855f7" />
-            <path d="M120 130 V150" stroke="#a855f7" strokeWidth="3" strokeLinecap="round" />
-            <rect x="130" y="135" width="10" height="12" rx="1" fill="#94a3b8" />
-        </g>
-        {/* Agent 3 */}
-        <g className="animate-agent-slide-in-right" style={{ animationDelay: '0.3s' }}>
-            <circle cx="320" cy="155" r="10" fill="#f59e0b" />
-            <path d="M320 165 V185" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
-            <rect x="300" y="160" width="10" height="12" rx="1" fill="#94a3b8" />
-        </g>
-        {/* Agent 4 */}
-        <g className="animate-agent-slide-in-right" style={{ animationDelay: '0.6s' }}>
-            <circle cx="280" cy="120" r="10" fill="#ef4444" />
-            <path d="M280 130 V150" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
-            <rect x="260" y="135" width="10" height="12" rx="1" fill="#94a3b8" />
-        </g>
-
-        <text x="200" y="50" textAnchor="middle" fill="#94a3b8" fontSize="14" fontWeight="bold">GATHERING INTEL</text>
+const SynthesizingScene = () => (
+     <SceneContainer title="Synthesize Draft Report">
+        <div className="flex items-center gap-4">
+             <div className="animate-agent-slide-in-left flex flex-col gap-2">
+                <div className="w-16 h-2 bg-slate-600 rounded-full animate-light-flicker" style={{animationDelay: '0.2s'}}></div>
+                <div className="w-16 h-2 bg-slate-600 rounded-full animate-light-flicker" style={{animationDelay: '0.4s'}}></div>
+                <div className="w-16 h-2 bg-slate-600 rounded-full animate-light-flicker" style={{animationDelay: '0.6s'}}></div>
+            </div>
+            <ManWalkingIcon className="h-20 w-20 text-blue-500 animate-scene-fade-in" />
+            <div className="animate-agent-slide-in-right">
+                <FinancialBuildingIcon className="h-20 w-20 text-blue-500" />
+            </div>
+        </div>
     </SceneContainer>
 );
 
 const DebatingScene = () => (
-     <SceneContainer>
-        {/* Desk */}
-        <path d="M50 200 H350" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        {/* Analyst 1 */}
-        <circle cx="150" cy="150" r="15" fill="#3b82f6" />
-        <path d="M150 165 V185 L170 170" stroke="#3b82f6" strokeWidth="4" fill="none" strokeLinecap="round" />
-        {/* Analyst 2 (Chief) */}
-        <circle cx="250" cy="150" r="15" fill="#f59e0b" />
-        <path d="M250 165 V185 L230 170" stroke="#f59e0b" strokeWidth="4" fill="none" strokeLinecap="round" />
-        {/* Monitor */}
-        <rect x="175" y="150" width="50" height="40" rx="5" fill="#1e293b" stroke="#475569" strokeWidth="2" />
-        <circle cx="190" cy="165" r="3" fill="#ef4444" />
-        <circle cx="210" cy="165" r="3" fill="#22c55e" />
-        <text x="200" y="50" textAnchor="middle" fill="#94a3b8" fontSize="14" fontWeight="bold">DEBATING & REFINING</text>
+    <SceneContainer title="Debating & Refining">
+       <div className="flex items-center justify-center gap-10">
+            <div className="animate-agent-slide-in-left text-center">
+                 <ManWalkingIcon className="h-20 w-20 text-blue-500" />
+                 <p className="text-xs font-bold text-slate-300 mt-1">Chief Analyst</p>
+            </div>
+            <div className="flex flex-col gap-1">
+                <div className="w-8 h-1 bg-red-500 rounded-full animate-light-flicker" style={{animationDelay: '0.5s'}}></div>
+                <div className="w-8 h-1 bg-green-500 rounded-full animate-light-flicker" style={{animationDelay: '0.2s'}}></div>
+            </div>
+            <div className="animate-agent-slide-in-right text-center">
+                <ManWalkingIcon className="h-20 w-20 text-orange-500" />
+                <p className="text-xs font-bold text-slate-300 mt-1">Specialist</p>
+            </div>
+       </div>
     </SceneContainer>
 );
 
 const FinalizingScene = () => (
-    <SceneContainer>
-        {/* Desk */}
-        <path d="M50 200 H350" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        {/* Analyst */}
-        <circle cx="200" cy="150" r="15" fill="#3b82f6" />
-        <path d="M200 165 V185 H220 L220 200" stroke="#3b82f6" strokeWidth="4" fill="none" strokeLinecap="round" />
-        {/* Monitor */}
-        <rect x="230" y="150" width="80" height="50" rx="5" fill="#1e293b" stroke="#475569" strokeWidth="2" />
-        <path d="M240 162 H290 M240 172 H300 M240 182 H280" stroke="#94a3b8" strokeWidth="1.5" />
-        {/* Documents */}
-        <rect x="100" y="185" width="40" height="15" rx="2" fill="#475569" />
-        <text x="200" y="50" textAnchor="middle" fill="#94a3b8" fontSize="14" fontWeight="bold">FINALIZING REPORT</text>
+    <SceneContainer title="Finalizing Report">
+        <div className="flex items-center gap-4">
+            <ManWalkingIcon className="h-20 w-20 text-blue-500 animate-agent-slide-in-left" />
+            <FinancialBuildingIcon className="h-20 w-20 text-green-500 animate-agent-slide-in-right" />
+        </div>
     </SceneContainer>
 );
 
 const CompleteScene = () => (
-     <SceneContainer>
-        {/* Desk */}
-        <path d="M50 200 H350" stroke="#475569" strokeWidth="4" strokeLinecap="round" />
-        {/* Analyst */}
-        <circle cx="200" cy="150" r="15" fill="#3b82f6" />
-        <path d="M200 165 V185 H220 L220 200" stroke="#3b82f6" strokeWidth="4" fill="none" strokeLinecap="round" />
-        {/* Monitor with Checkmark */}
-        <rect x="230" y="150" width="80" height="50" rx="5" fill="#1e293b" stroke="#475569" strokeWidth="2" />
-        <g className="animate-glow">
-            <path d="M255 175 l10 10 l20 -20" 
-                stroke="#4ade80" 
-                strokeWidth="5" 
-                fill="none" 
-                strokeLinecap="round"
-                strokeDasharray="50"
-                strokeDashoffset="50"
-                className="animate-draw-checkmark"
-            />
-        </g>
-        <text x="200" y="50" textAnchor="middle" fill="#4ade80" fontSize="14" fontWeight="bold">ANALYSIS COMPLETE</text>
+    <SceneContainer title="Analysis Complete">
+        <div className="relative animate-glow">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="#4ade80" strokeWidth="4"/>
+                <path d="M30 50 l15 15 l30 -30"
+                    stroke="#4ade80"
+                    strokeWidth="8"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray="80"
+                    strokeDashoffset="80"
+                    className="animate-draw-checkmark"
+                />
+            </svg>
+        </div>
     </SceneContainer>
 );
 
 const PausedScene = () => (
-    <SceneContainer>
-        <rect x="150" y="100" width="100" height="100" rx="10" fill="#1e293b" stroke="#f59e0b" strokeWidth="2" />
-        <path d="M190 125 V175 M210 125 V175" stroke="#f59e0b" strokeWidth="8" strokeLinecap="round"/>
-        <text x="200" y="50" textAnchor="middle" fill="#f59e0b" fontSize="14" fontWeight="bold">ANALYSIS PAUSED</text>
+    <SceneContainer title="Analysis Paused">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="35" fill="none" stroke="#f59e0b" strokeWidth="4" />
+            <path d="M30 25 V55 M50 25 V55" stroke="#f59e0b" strokeWidth="8" strokeLinecap="round" />
+        </svg>
     </SceneContainer>
 );
-
 
 const renderScene = (phase: AnalysisPhase) => {
     switch (phase) {
         case 'PLANNING': return <PlanningScene />;
-        case 'GATHERING':
+        case 'GATHERING': return <GatheringScene />;
         case 'CALCULATING':
-        case 'VERIFYING': return <GatheringScene />;
-        case 'DRAFTING':
+        case 'VERIFYING':
+        case 'DRAFTING': return <SynthesizingScene />;
         case 'DEBATING':
         case 'REFINING': return <DebatingScene />;
         case 'FINALIZING': return <FinalizingScene />;
@@ -167,53 +192,12 @@ const renderScene = (phase: AnalysisPhase) => {
     }
 };
 
-interface FinancialAdvisorLoaderProps {
-    stockSymbol: string;
-    analysisPhase: AnalysisPhase;
-    executionLog: ExecutionStep[];
-}
-
-const mainPhases: { key: AnalysisPhase, text: string }[] = [
-    { key: 'PLANNING', text: 'Planning' },
-    { key: 'GATHERING', text: 'Gathering' },
-    { key: 'DRAFTING', text: 'Synthesizing' },
-    { key: 'DEBATING', text: 'Debating' },
-    { key: 'FINALIZING', text: 'Finalizing' },
-];
-
-const phaseOrder: Record<AnalysisPhase, number> = {
-    IDLE: 0, PLANNING: 1, GATHERING: 2, CALCULATING: 2, VERIFYING: 2,
-    DRAFTING: 3, DEBATING: 4, REFINING: 4, FINALIZING: 5, COMPLETE: 6, ERROR: 6, PAUSED: 6
-};
-
-const BackgroundBubbles: React.FC = () => (
-    <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-        {[...Array(10)].map((_, i) => {
-            const size = Math.random() * 200 + 50;
-            const duration = Math.random() * 20 + 15;
-            const delay = Math.random() * 10;
-            return (
-                <div
-                    key={i}
-                    className="absolute bottom-0 rounded-full bg-blue-500/10"
-                    style={{
-                        width: `${size}px`,
-                        height: `${size}px`,
-                        left: `${Math.random() * 100}%`,
-                        animation: `background-bubbles ${duration}s linear ${delay}s infinite`,
-                    }}
-                />
-            );
-        })}
-    </div>
-);
-
 const LiveLog: React.FC<{ log: ExecutionStep[] }> = ({ log }) => {
     const lastThree = log.filter(step => step.status === 'complete').slice(-3);
     if (lastThree.length === 0) return null;
     
     return (
-        <div className="mt-8 w-full max-w-2xl mx-auto p-4 bg-gray-900/50 rounded-lg border border-slate-700/50 backdrop-blur-sm">
+        <div className="mt-8 w-full max-w-2xl mx-auto p-4 bg-slate-800/60 rounded-lg border border-slate-700/50 backdrop-blur-sm">
             <h4 className="text-sm font-bold text-slate-300 mb-3 text-center tracking-wider uppercase">Live Activity Log</h4>
             <div className="space-y-2 font-mono">
                 {lastThree.map((step) => (
@@ -231,18 +215,34 @@ const LiveLog: React.FC<{ log: ExecutionStep[] }> = ({ log }) => {
     );
 };
 
-export const FinancialAdvisorLoader: React.FC<FinancialAdvisorLoaderProps> = (props) => {
-    const { stockSymbol, analysisPhase, executionLog } = props;
-    
-    const currentPhaseIndex = useMemo(() => {
-        const order = phaseOrder[analysisPhase] || 0;
-        if (order >= 5) return 4;
-        if (order >= 4) return 3;
-        if (order >= 3) return 2;
-        if (order >= 2) return 1;
-        if (order >= 1) return 0;
-        return -1;
-    }, [analysisPhase]);
+const BackgroundCircles: React.FC = () => (
+    <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
+        <div className="absolute -top-20 -left-20 w-80 h-80 bg-blue-500/5 rounded-full"></div>
+        <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-blue-500/5 rounded-full"></div>
+    </div>
+);
+
+const mainPhases: { text: string }[] = [
+    { text: 'Planning' },
+    { text: 'Gathering' },
+    { text: 'Synthesizing' },
+    { text: 'Debating' },
+    { text: 'Finalizing' },
+];
+
+const phaseOrder: Record<AnalysisPhase, number> = {
+    IDLE: -1, PLANNING: 0, GATHERING: 1, CALCULATING: 1, VERIFYING: 1,
+    DRAFTING: 2, DEBATING: 3, REFINING: 3, FINALIZING: 4, COMPLETE: 5, ERROR: 5, PAUSED: 5
+};
+
+interface FinancialAdvisorLoaderProps {
+    stockSymbol: string;
+    analysisPhase: AnalysisPhase;
+    executionLog: ExecutionStep[];
+}
+
+export const FinancialAdvisorLoader: React.FC<FinancialAdvisorLoaderProps> = ({ stockSymbol, analysisPhase, executionLog }) => {
+    const currentPhaseIndex = useMemo(() => phaseOrder[analysisPhase] ?? -1, [analysisPhase]);
 
     const currentStatusText = useMemo(() => {
         const runningStep = executionLog.find(s => s.status === 'running');
@@ -254,7 +254,7 @@ export const FinancialAdvisorLoader: React.FC<FinancialAdvisorLoaderProps> = (pr
 
     return (
         <div className="py-6 animate-fade-in relative overflow-hidden" aria-live="polite" aria-label={`Analyzing ${stockSymbol}...`}>
-            <BackgroundBubbles />
+            <BackgroundCircles />
             <div className="text-center mb-6">
                 <h2 className="text-2xl font-bold text-slate-100">
                     <span className="text-blue-500">Agentic Workflow</span> in Progress...
@@ -264,26 +264,25 @@ export const FinancialAdvisorLoader: React.FC<FinancialAdvisorLoaderProps> = (pr
                 </p>
             </div>
 
-            <div className="w-full max-w-2xl mx-auto mb-4">
-                <div className="relative flex justify-between items-center">
+            <div className="w-full max-w-2xl mx-auto mb-4 px-4">
+                <div className="flex items-start">
                     {mainPhases.map((phase, index) => (
-                        <div key={phase.key} className="text-center text-xs text-slate-400 flex-1 relative z-10">
-                             <div className={`w-4 h-4 rounded-full mx-auto mb-1 transition-colors duration-300 ${index <= currentPhaseIndex ? 'bg-blue-500' : 'bg-slate-600'}`}></div>
-                            {phase.text}
-                        </div>
+                        <React.Fragment key={phase.text}>
+                            <div className="flex flex-col items-center z-10">
+                                <div className={`w-3 h-3 rounded-full transition-colors duration-300 ${index <= currentPhaseIndex ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
+                                <p className="text-xs text-slate-400 mt-2 text-center">{phase.text}</p>
+                            </div>
+                            {index < mainPhases.length - 1 && (
+                                <div className={`flex-1 h-0.5 mt-1.5 transition-colors duration-300 ${index < currentPhaseIndex ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
+                            )}
+                        </React.Fragment>
                     ))}
-                    <div className="absolute top-1.5 left-0 right-0 h-0.5 bg-slate-600 w-full">
-                        <div 
-                            className="h-full bg-blue-500 transition-all duration-500 ease-in-out" 
-                            style={{ width: `${(currentPhaseIndex / (mainPhases.length - 1)) * 100}%` }}
-                        />
-                    </div>
                 </div>
             </div>
             
             <p className="text-center text-sm font-semibold text-slate-300 h-5 mb-6">{currentStatusText}</p>
             
-            <div className="relative flex justify-center items-center min-h-[250px]">
+            <div className="relative flex justify-center items-center min-h-[200px]">
                {renderScene(analysisPhase)}
             </div>
             

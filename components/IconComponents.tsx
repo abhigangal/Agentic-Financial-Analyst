@@ -198,15 +198,17 @@ export const PlayCircleIcon = ({className = "h-6 w-6"}) => (
     </svg>
 );
 
-export const ManWalkingIcon = ({ className = "h-8 w-8" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
+// FIX: Update component signature to accept and spread additional props like `style`. This resolves TypeScript errors when the component is used with a `style` attribute for dynamic styling.
+export const ManWalkingIcon = ({ className = "h-8 w-8", ...props }: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor" {...props}>
         <path d="M14.5 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm-2.5 4a.5.5 0 0 0-1 0v4.319l-1.68-1.12a.5.5 0 0 0-.64.76l2.5 1.666V19.5a.5.5 0 0 0 1 0v-3.681l2.62-1.746a.5.5 0 0 0-.5-1.1L12 13.832V9.5Z" />
         <path d="M12.94 20.354a.5.5 0 0 0 .56-.812l-1.912-1.328a.5.5 0 0 0-.558.812l1.91 1.328Z" />
     </svg>
 );
 
-export const FinancialBuildingIcon = ({ className = "h-8 w-8" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor">
+// FIX: Update component signature to accept and spread additional props like `style`. This resolves TypeScript errors when the component is used with a `style` attribute for dynamic styling.
+export const FinancialBuildingIcon = ({ className = "h-8 w-8", ...props }: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="currentColor" {...props}>
         <path d="M4 21V10.083L12 3l8 7.083V21H4Zm2-2h12v-9l-6-5.25L6 9.917V19Zm2-2v-2h2v2H8Zm4 0v-2h2v2h-2Zm-4-4v-2h2v2H8Zm4 0v-2h2v2h-2Z"/>
         <path d="m15.46 11.54-1.25-1.25L12 12.44l-2.21-2.15-1.25 1.25L12 14.94l3.46-3.4Z"/>
     </svg>
@@ -257,5 +259,11 @@ export const CalendarDaysIcon = ({className = "h-6 w-6"}) => (
 export const DatabaseIcon = ({className = "h-6 w-6"}) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5M5.25 4.5h13.5c.828 0 1.5.672 1.5 1.5v12c0 .828-.672 1.5-1.5 1.5H5.25c-.828 0-1.5-.672-1.5-1.5V6c0-.828.672-1.5 1.5-1.5z" />
+    </svg>
+);
+
+export const ShieldExclamationIcon = ({ className = "h-6 w-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.25-8.25-3.286zm0 13.036h.008v.008H12v-.008z" />
     </svg>
 );

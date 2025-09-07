@@ -1,6 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, MarketSentimentAnalysis } from '../types';
-import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, NEWS_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, FINANCIAL_DATA_EXTRACTOR_AGENT_PROMPT, MARKET_SENTIMENT_AGENT_PROMPT } from '../constants';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, TechnicalAnalysis, ContrarianAnalysis, DataAndTechnicalsAnalysis, AgentKey } from '../types';
+import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, MARKET_INTELLIGENCE_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, DATA_AND_TECHNICALS_AGENT_PROMPT, CONTRARIAN_AGENT_PROMPT } from '../constants';
 
 if (!process.env.API_KEY) {
   // The error handling in the app will catch the error from the SDK
@@ -125,8 +125,8 @@ async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoo
 export async function getAnalysisPlan(stockSymbol: string, marketName: string, agentList: string): Promise<string> {
     const userPrompt = `Stock: ${stockSymbol} (${marketName}). Enabled agents: ${agentList}.`;
     try {
-        const result = await runAgent<string>(PLANNING_AGENT_PROMPT, userPrompt, false, false);
-        return result;
+        const result = await runAgent<{plan: string[]}>(PLANNING_AGENT_PROMPT, userPrompt, false, true);
+        return Array.isArray(result.plan) ? result.plan.map(step => `- ${step}`).join('\n') : "Plan generation failed.";
     } catch (e) {
         console.error(e);
         throw new Error("Failed to generate analysis plan.");
@@ -183,24 +183,27 @@ export async function getMacroAnalysis(stockSymbol: string, marketName: string, 
     }
 }
 
-export async function getNewsAnalysis(stockSymbol: string, marketName: string, overridePrompt?: string): Promise<NewsAnalysis> {
-    let userPrompt = `Please perform a news analysis for the last 15 days for the company with the stock symbol: ${stockSymbol}, which trades in the ${marketName} market.`;
+export async function getMarketIntelligenceAnalysis(stockSymbol: string, marketName: string, overridePrompt?: string): Promise<MarketIntelligenceAnalysis> {
+    let userPrompt = `Please perform a market intelligence analysis for the company with the stock symbol: ${stockSymbol}, which trades in the ${marketName} market.`;
     if (overridePrompt) {
         userPrompt += `\n\nCRITICAL REFINEMENT QUESTION: You MUST answer this specific question in your analysis: "${overridePrompt}"`;
     }
     try {
-        const systemInstruction = NEWS_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
-        const result = await runAgent<NewsAnalysis>(systemInstruction, userPrompt, true);
-        // Ensure regulatory_risks is an array even if the model omits it
-        if (!result.regulatory_risks) {
-            result.regulatory_risks = [];
-        }
+        const systemInstruction = MARKET_INTELLIGENCE_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
+        const result = await runAgent<MarketIntelligenceAnalysis>(systemInstruction, userPrompt, true);
+        // Ensure arrays exist even if the model omits them
+        if (!result.regulatory_and_geopolitical_risks) result.regulatory_and_geopolitical_risks = [];
+        if (!result.key_articles) result.key_articles = [];
+        if (!result.key_positive_points) result.key_positive_points = [];
+        if (!result.key_negative_points) result.key_negative_points = [];
+        if (!result.major_holders) result.major_holders = [];
         return result;
     } catch (e) {
          console.error(e);
-         throw new Error(e instanceof Error ? e.message : `News analysis failed for ${stockSymbol}.`);
+         throw new Error(e instanceof Error ? e.message : `Market Intelligence analysis failed for ${stockSymbol}.`);
     }
 }
+
 
 export async function getLeadershipAnalysis(stockSymbol: string, marketName: string, overridePrompt?: string): Promise<LeadershipAnalysis> {
     let userPrompt = `Please perform a leadership analysis for the company with the stock symbol: ${stockSymbol}, which trades in the ${marketName} market.`;
@@ -262,44 +265,50 @@ export async function getCorporateCalendarAnalysis(stockSymbol: string, marketNa
     }
 }
 
-export async function getMarketSentimentAnalysis(stockSymbol: string, marketName: string, overridePrompt?: string): Promise<MarketSentimentAnalysis> {
-    let userPrompt = `Please perform a market sentiment analysis for the company with the stock symbol: ${stockSymbol}, which trades in the ${marketName} market.`;
-    if (overridePrompt) {
-        userPrompt += `\n\nCRITICAL REFINEMENT QUESTION: You MUST answer this specific question in your analysis: "${overridePrompt}"`;
+export async function getContrarianAnalysis(draftSummary: string, specialistContexts: Record<string, string>): Promise<ContrarianAnalysis> {
+    let userPrompt = `CONSENSUS VIEW:\n${draftSummary}\n\nSUPPORTING DATA FROM SPECIALISTS:\n`;
+    for (const [agent, context] of Object.entries(specialistContexts)) {
+        userPrompt += `- ${agent.toUpperCase()}: ${context}\n`;
     }
     try {
-        const systemInstruction = MARKET_SENTIMENT_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
-        const result = await runAgent<MarketSentimentAnalysis>(systemInstruction, userPrompt, true);
-        return result;
+        return await runAgent<ContrarianAnalysis>(CONTRARIAN_AGENT_PROMPT, userPrompt, true);
     } catch (e) {
-         console.error(e);
-         throw new Error(e instanceof Error ? e.message : `Market sentiment analysis failed for ${stockSymbol}.`);
+        console.error(e);
+        throw new Error(e instanceof Error ? e.message : `Contrarian analysis failed.`);
     }
 }
 
-export async function getFinancialData(screenerUrl: string, screenerName: string): Promise<RawFinancials> {
-    const userPrompt = `Please extract financial data for the company at URL: ${screenerUrl}`;
+export async function getDataAndTechnicalsAnalysis(screenerUrl: string, screenerName: string, marketName: string): Promise<DataAndTechnicalsAnalysis> {
+    const userPrompt = `Please extract financial data and perform technical analysis for the company at URL: ${screenerUrl}`;
     try {
-        const systemInstruction = FINANCIAL_DATA_EXTRACTOR_AGENT_PROMPT.replace(/\[Screener Name\]/g, screenerName);
-        const result = await runAgent<RawFinancials>(systemInstruction, userPrompt, true);
+        const systemInstruction = DATA_AND_TECHNICALS_AGENT_PROMPT
+            .replace(/\[Screener Name\]/g, screenerName)
+            .replace(/\[Market Name\]/g, marketName);
+        const result = await runAgent<DataAndTechnicalsAnalysis>(systemInstruction, userPrompt, true);
         return result;
     } catch (e) {
         console.error(e);
-        throw new Error(e instanceof Error ? e.message : `Financial data extraction failed.`);
+        throw new Error(e instanceof Error ? e.message : `Data and technicals extraction failed.`);
     }
 }
 
 export async function getChiefAnalystCritique(
     draftAnalysisSummary: string,
-    sidekickContexts: { [key: string]: string }
+    sidekickContexts: { [key: string]: string },
+    successfulAgents: AgentKey[]
 ): Promise<ChiefAnalystCritique> {
     let userPrompt = `DRAFT ANALYSIS SUMMARY:\n${draftAnalysisSummary}\n\nSPECIALIST AGENT REPORTS:\n`;
     for (const [agent, context] of Object.entries(sidekickContexts)) {
         userPrompt += `- ${agent.toUpperCase()}: ${context}\n`;
     }
 
+    const agentEnum = successfulAgents.map(a => `'${a.toUpperCase()}'`).join('|') + "|'None'";
+    const systemInstruction = CHIEF_ANALYST_AGENT_PROMPT
+        .replace('[AGENT_LIST]', successfulAgents.join(', ').toUpperCase())
+        .replace('[AGENT_LIST_ENUM]', agentEnum);
+
     try {
-        const result = await runAgent<ChiefAnalystCritique>(CHIEF_ANALYST_AGENT_PROMPT, userPrompt, true);
+        const result = await runAgent<ChiefAnalystCritique>(systemInstruction, userPrompt, true);
         return result;
     } catch (e) {
         console.error(e);
@@ -323,7 +332,7 @@ const sanitizeRecommendation = (rec: string | undefined): StockAnalysis['recomme
 const sanitizeSentiment = (sentiment: string | undefined): StockAnalysis['overall_sentiment'] => {
     if (!sentiment) return 'N/A';
     const sanitized = sentiment.split('(')[0].trim();
-    const validSentiments: StockAnalysis['overall_sentiment'][] = ['Strong Bullish', 'Bullish', 'Neutral', 'Bearish', 'Strong Bearish', 'N/A'];
+    const validSentiments: StockAnalysis['overall_sentiment'][] = ['Strong Bullish', 'Bullish', 'Neutral', 'Bearish', 'Strong Bullish', 'N/A'];
      if (validSentiments.includes(sanitized as any)) {
       return sanitized as StockAnalysis['overall_sentiment'];
     }
@@ -399,12 +408,13 @@ export async function getStockAnalysis(
         contextual_inputs: {
             esg_summary: rawData.contextual_inputs?.esg_summary || context.esg,
             macroeconomic_summary: rawData.contextual_inputs?.macroeconomic_summary || context.macro,
-            news_summary: rawData.contextual_inputs?.news_summary || context.news,
+            market_intelligence_summary: rawData.contextual_inputs?.market_intelligence_summary || context.market_intel,
             leadership_summary: rawData.contextual_inputs?.leadership_summary || context.leadership,
             competitive_summary: rawData.contextual_inputs?.competitive_summary || context.competitive,
             sector_summary: rawData.contextual_inputs?.sector_summary || context.sector,
             corporate_calendar_summary: rawData.contextual_inputs?.corporate_calendar_summary || context.calendar,
-            market_sentiment_summary: rawData.contextual_inputs?.market_sentiment_summary || context.sentiment,
+            technical_analysis_summary: rawData.contextual_inputs?.technical_analysis_summary || context.technical,
+            contrarian_summary: rawData.contextual_inputs?.contrarian_summary || context.contrarian,
         },
         na_justifications: rawData.na_justifications || {}
     };

@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ExecutionStep, CalculatedMetric, GroundingSource, MarketSentimentAnalysis, InstitutionalHolder } from '../types';
-import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, CheckCircleIcon, ExclamationTriangleIcon, LinkIcon, UserCircleIcon as UserIcon } from './IconComponents';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ExecutionStep, CalculatedMetric, GroundingSource, MarketIntelligenceAnalysis, TechnicalAnalysis, ContrarianAnalysis } from '../types';
+import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, ScaleIcon, ShieldExclamationIcon } from './IconComponents';
 import { ResultDisplay } from './ResultDisplay';
 import { FinancialAdvisorLoader } from './FinancialAdvisorLoader';
 import { SidekickAgentCard } from './SidekickAgentCard';
 import { EsgAgentCard } from './esg/EsgAgentCard';
 import { MacroAgentCard } from './macro/MacroAgentCard';
-import { NewsAgentCard } from './news/NewsAgentCard';
+import { MarketIntelligenceAgentCard } from './news/NewsAgentCard';
 import { LeadershipAgentCard } from './leadership/LeadershipAgentCard';
 import { CompetitiveAgentCard } from './competitive/CompetitiveAgentCard';
 import { SectorAgentCard } from './sector/SectorAgentCard';
@@ -14,98 +14,87 @@ import { CorporateCalendarAgentCard } from './calendar/CorporateCalendarAgentCar
 import { ScenarioPlanner } from './scenario/ScenarioPlanner';
 import { CollapsibleSection } from './CollapsibleSection';
 import { Tabs } from './Tabs';
-import { AgentKey } from './AnalysisConfiguration';
+import { AgentKey } from '../types';
 import { AnalysisPhase } from '../../App';
 import { PlanAndSteps } from './PlanAndSteps';
-import { VisualGauge } from './VisualGauge';
 
-const sentimentGaugeSegments = [
-    { label: 'Negative', color: 'bg-red-200', textColor: 'text-red-800 dark:text-red-300' },
-    { label: 'Neutral', color: 'bg-gray-200', textColor: 'text-gray-800 dark:text-gray-300' },
-    { label: 'Positive', color: 'bg-green-200', textColor: 'text-green-800 dark:text-green-300' },
-];
-
-const sentimentGaugeMap: { [key: string]: number } = {
-    'Negative': 0, 'Neutral': 1, 'Positive': 2
-};
-
-const MarketSentimentResultDisplay: React.FC<{ result: MarketSentimentAnalysis }> = ({ result }) => {
-    const { overall_sentiment, sentiment_summary, key_positive_points, key_negative_points, major_holders, sources } = result;
-    const sentimentValue = sentimentGaugeMap[overall_sentiment];
-
+const TechnicalResultDisplay: React.FC<{ result: TechnicalAnalysis }> = ({ result }) => {
     return (
         <div className="animate-fade-in space-y-4">
-            <div>
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Market Sentiment</h3>
-                <p className="text-sm text-gray-500 dark:text-slate-400 mb-2">Analysis of investor sentiment and ownership.</p>
-                {sentimentValue !== undefined && overall_sentiment !== 'N/A' && (
-                    <div className="p-4 rounded-lg bg-gray-50/50 border border-gray-200/80 dark:bg-slate-700/50 dark:border-slate-600/80">
-                        <VisualGauge label="Overall Sentiment" value={sentimentValue} segments={sentimentGaugeSegments} />
-                    </div>
-                )}
+             <div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Technical Analysis</h3>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mb-2">Chart patterns, indicators, and key price levels.</p>
             </div>
-            <div className="prose prose-sm text-slate-600 max-w-none dark:text-slate-300">
-                <p>{sentiment_summary}</p>
+             <div className="prose prose-sm text-slate-600 max-w-none dark:text-slate-300">
+                <p>{result.summary}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                <div>
-                    <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">Key Positive Points</h4>
-                    <ul className="space-y-2">
-                        {key_positive_points.map((point, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
-                                <CheckCircleIcon className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
-                                <span>{point}</span>
-                            </li>
-                        ))}
-                    </ul>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="text-center bg-gray-100/80 border border-gray-200/80 p-3 rounded-lg dark:bg-slate-700/50 dark:border-slate-600">
+                    <p className="text-xs text-slate-500 mb-1 dark:text-slate-400">Trend</p>
+                    <p className="text-base font-bold text-slate-800 dark:text-slate-100">{result.trend}</p>
                 </div>
-                <div>
-                    <h4 className="font-semibold text-red-700 dark:text-red-400 mb-2">Key Negative Points</h4>
-                    <ul className="space-y-2">
-                        {key_negative_points.map((point, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
-                                <ExclamationTriangleIcon className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                                <span>{point}</span>
-                            </li>
-                        ))}
-                    </ul>
+                 <div className="text-center bg-gray-100/80 border border-gray-200/80 p-3 rounded-lg dark:bg-slate-700/50 dark:border-slate-600">
+                    <p className="text-xs text-slate-500 mb-1 dark:text-slate-400">Support</p>
+                    <p className="text-base font-bold text-slate-800 dark:text-slate-100">{result.support_level}</p>
+                </div>
+                 <div className="text-center bg-gray-100/80 border border-gray-200/80 p-3 rounded-lg dark:bg-slate-700/50 dark:border-slate-600">
+                    <p className="text-xs text-slate-500 mb-1 dark:text-slate-400">Resistance</p>
+                    <p className="text-base font-bold text-slate-800 dark:text-slate-100">{result.resistance_level}</p>
                 </div>
             </div>
-             {major_holders && major_holders.length > 0 && (
-                <CollapsibleSection title="Major Institutional Holders" icon={<UserIcon />}>
-                    <div className="columns-1 md:columns-2 gap-x-6">
-                    {major_holders.map((holder: InstitutionalHolder, index: number) => (
-                        <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-slate-700/50 break-inside-avoid">
-                            <span className="text-sm text-slate-700 dark:text-slate-300">{holder.name}</span>
-                            <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{holder.stake}</span>
-                        </div>
-                    ))}
-                    </div>
-                </CollapsibleSection>
-             )}
-            {sources && sources.length > 0 && (
-                <CollapsibleSection title="Sources" icon={<LinkIcon />}>
-                    <ul className="list-disc pl-5 space-y-2 prose prose-sm text-slate-600 max-w-none dark:text-slate-300">
-                    {sources.map((source, index) => (
-                        <li key={index}>
-                            <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-500 hover:underline break-all dark:text-blue-400 dark:hover:text-blue-300" title={source.uri}>
-                                {source.title || source.uri}
-                            </a>
-                        </li>
-                    ))}
-                    </ul>
-                </CollapsibleSection>
-            )}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-500/30">
+                <h4 className="font-semibold text-sm text-blue-800 dark:text-blue-300 mb-1">Moving Averages</h4>
+                <p className="text-sm text-slate-700 dark:text-slate-200">{result.moving_averages_summary}</p>
+            </div>
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-500/30">
+                <h4 className="font-semibold text-sm text-blue-800 dark:text-blue-300 mb-1">Indicators (RSI, MACD)</h4>
+                <p className="text-sm text-slate-700 dark:text-slate-200">{result.indicators_summary}</p>
+            </div>
         </div>
     );
 };
 
-const MarketSentimentAgentCard: React.FC<{ result: MarketSentimentAnalysis | null }> = ({ result }) => {
+const ContrarianResultDisplay: React.FC<{ result: ContrarianAnalysis }> = ({ result }) => {
+    return (
+        <div className="animate-fade-in space-y-4">
+             <div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Contrarian Case ("Red Team")</h3>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mb-2">Challenges the consensus view and identifies overlooked risks.</p>
+            </div>
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl dark:bg-red-900/20 dark:border-red-500/30">
+                <h4 className="font-bold text-red-800 dark:text-red-300 mb-2">Bear Case Summary</h4>
+                <p className="prose prose-sm max-w-none text-red-900/80 dark:text-red-200/90">{result.bear_case_summary}</p>
+            </div>
+             <div>
+                <h4 className="font-semibold text-red-700 dark:text-red-400 mb-2">Key Contrarian Points</h4>
+                <ul className="space-y-2">
+                    {result.key_contrarian_points.map((point, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                            <ShieldExclamationIcon className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                            <span>{point}</span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
+
+const TechnicalAgentCard: React.FC<{ result: TechnicalAnalysis | null }> = ({ result }) => {
   if (result) {
-    return <MarketSentimentResultDisplay result={result} />;
+    return <TechnicalResultDisplay result={result} />;
   }
   return null;
 };
+
+const ContrarianAgentCard: React.FC<{ result: ContrarianAnalysis | null }> = ({ result }) => {
+  if (result) {
+    return <ContrarianResultDisplay result={result} />;
+  }
+  return null;
+};
+
 
 interface AgentStatus { isLoading: boolean; error: string | null; }
 
@@ -114,12 +103,13 @@ interface TabbedAnalysisProps {
   analysisResult: StockAnalysis | null;
   esgAnalysis: EsgAnalysis | null;
   macroAnalysis: MacroAnalysis | null;
-  newsAnalysis: NewsAnalysis | null;
+  marketIntelligenceAnalysis: MarketIntelligenceAnalysis | null;
   leadershipAnalysis: LeadershipAnalysis | null;
   competitiveAnalysis: CompetitiveAnalysis | null;
   sectorAnalysis: SectorAnalysis | null;
   corporateCalendarAnalysis: CorporateCalendarAnalysis | null;
-  marketSentimentAnalysis: MarketSentimentAnalysis | null;
+  technicalAnalysis: TechnicalAnalysis | null;
+  contrarianAnalysis: ContrarianAnalysis | null;
   currencySymbol: string;
   onRetry: () => void;
   enabledAgents: Record<AgentKey, boolean> | null;
@@ -133,15 +123,16 @@ interface TabbedAnalysisProps {
 
 const TABS = {
     ANALYSIS: 'Analysis',
-    METHODOLOGY: 'Methodology & Sources',
+    METHODOLOGY: 'Methodology',
     ESG: 'ESG',
     MACRO: 'Macro',
-    NEWS: 'News',
+    MARKET_INTEL: 'Market Intel',
     LEADERSHIP: 'Leadership',
     COMPETITION: 'Competition',
     SECTOR: 'Sector',
     CALENDAR: 'Calendar',
-    SENTIMENT: 'Sentiment',
+    TECHNICALS: 'Technicals',
+    BEAR_CASE: 'Bear Case',
 };
 
 export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
@@ -166,52 +157,29 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
     <div className="animate-fade-in mt-6">
         <Tabs.Group defaultTab={TABS.ANALYSIS}>
             <Tabs.List>
-                <Tabs.Tab id={TABS.ANALYSIS} data-test="analysis-tab-main">
-                    <div className="flex items-center gap-2"><FinancialAdvisorIcon className="h-5 w-5" /> Overall Analysis</div>
-                </Tabs.Tab>
-                <Tabs.Tab id={TABS.METHODOLOGY} data-test="analysis-tab-methodology">
-                    <div className="flex items-center gap-2"><SparklesIcon className="h-5 w-5" /> Methodology & Sources</div>
-                </Tabs.Tab>
-                 <Tabs.Tab id={TABS.ESG} data-test="analysis-tab-esg">
-                    <div className="flex items-center gap-2"><LeafIcon className="h-5 w-5" /> ESG</div>
-                </Tabs.Tab>
-                <Tabs.Tab id={TABS.MACRO} data-test="analysis-tab-macro">
-                    <div className="flex items-center gap-2"><GlobeAltIcon className="h-5 w-5" /> Macroeconomic</div>
-                </Tabs.Tab>
-                <Tabs.Tab id={TABS.NEWS} data-test="analysis-tab-news">
-                    <div className="flex items-center gap-2"><NewspaperIcon className="h-5 w-5" /> Recent News</div>
-                </Tabs.Tab>
-                <Tabs.Tab id={TABS.LEADERSHIP} data-test="analysis-tab-leadership">
-                    <div className="flex items-center gap-2"><UserGroupIcon className="h-5 w-5" /> Leadership</div>
-                </Tabs.Tab>
-                <Tabs.Tab id={TABS.COMPETITION} data-test="analysis-tab-competition">
-                    <div className="flex items-center gap-2"><TrophyIcon className="h-5 w-5" /> Competition</div>
-                </Tabs.Tab>
-                <Tabs.Tab id={TABS.SECTOR} data-test="analysis-tab-sector">
-                    <div className="flex items-center gap-2"><BuildingOfficeIcon className="h-5 w-5" /> Sector</div>
-                </Tabs.Tab>
-                <Tabs.Tab id={TABS.CALENDAR} data-test="analysis-tab-calendar">
-                    <div className="flex items-center gap-2"><CalendarDaysIcon className="h-5 w-5" /> Calendar</div>
-                </Tabs.Tab>
-                <Tabs.Tab id={TABS.SENTIMENT} data-test="analysis-tab-sentiment">
-                    <div className="flex items-center gap-2"><ChatBubbleLeftRightIcon className="h-5 w-5" /> Sentiment</div>
-                </Tabs.Tab>
+                <Tabs.Tab id={TABS.ANALYSIS} data-test="analysis-tab-main"><div className="flex items-center gap-2"><FinancialAdvisorIcon className="h-5 w-5" /> Overall Analysis</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.METHODOLOGY} data-test="analysis-tab-methodology"><div className="flex items-center gap-2"><SparklesIcon className="h-5 w-5" /> Methodology</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.TECHNICALS} data-test="analysis-tab-technicals"><div className="flex items-center gap-2"><ScaleIcon className="h-5 w-5" /> Technicals</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.BEAR_CASE} data-test="analysis-tab-bear-case"><div className="flex items-center gap-2"><ShieldExclamationIcon className="h-5 w-5" /> Bear Case</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.MARKET_INTEL} data-test="analysis-tab-market-intel"><div className="flex items-center gap-2"><ChatBubbleLeftRightIcon className="h-5 w-5" /> Market Intel</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.COMPETITION} data-test="analysis-tab-competition"><div className="flex items-center gap-2"><TrophyIcon className="h-5 w-5" /> Competition</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.LEADERSHIP} data-test="analysis-tab-leadership"><div className="flex items-center gap-2"><UserGroupIcon className="h-5 w-5" /> Leadership</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.SECTOR} data-test="analysis-tab-sector"><div className="flex items-center gap-2"><BuildingOfficeIcon className="h-5 w-5" /> Sector</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.ESG} data-test="analysis-tab-esg"><div className="flex items-center gap-2"><LeafIcon className="h-5 w-5" /> ESG</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.MACRO} data-test="analysis-tab-macro"><div className="flex items-center gap-2"><GlobeAltIcon className="h-5 w-5" /> Macro</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.CALENDAR} data-test="analysis-tab-calendar"><div className="flex items-center gap-2"><CalendarDaysIcon className="h-5 w-5" /> Calendar</div></Tabs.Tab>
             </Tabs.List>
             <Tabs.Panels>
                 <Tabs.Panel id={TABS.ANALYSIS}>
                     {isLoading && !analysisResult ? (
-                         <FinancialAdvisorLoader
-                            stockSymbol={currentSymbol}
-                            analysisPhase={analysisPhase}
-                            executionLog={executionLog}
-                        />
+                         <FinancialAdvisorLoader stockSymbol={currentSymbol} analysisPhase={analysisPhase} executionLog={executionLog} />
                     ) : analysisResult ? (
                         <>
                             <ResultDisplay
                                 result={analysisResult}
                                 esgAnalysis={props.esgAnalysis}
                                 macroAnalysis={props.macroAnalysis}
-                                newsAnalysis={props.newsAnalysis}
+                                marketIntelligenceAnalysis={props.marketIntelligenceAnalysis}
                                 leadershipAnalysis={props.leadershipAnalysis}
                                 competitiveAnalysis={props.competitiveAnalysis}
                                 currencySymbol={currencySymbol}
@@ -262,6 +230,16 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                         consolidatedSources={consolidatedSources}
                     />
                 </Tabs.Panel>
+                <Tabs.Panel id={TABS.TECHNICALS}>
+                    <SidekickAgentCard title="Technical Analysis" icon={<ScaleIcon className="h-5 w-5" />} isLoading={agentStatuses.data_and_technicals?.isLoading} error={agentStatuses.data_and_technicals?.error}>
+                        <TechnicalAgentCard result={props.technicalAnalysis} />
+                    </SidekickAgentCard>
+                </Tabs.Panel>
+                 <Tabs.Panel id={TABS.BEAR_CASE}>
+                    <SidekickAgentCard title="Contrarian Case" icon={<ShieldExclamationIcon className="h-5 w-5" />} isLoading={agentStatuses.contrarian.isLoading} error={agentStatuses.contrarian.error}>
+                        <ContrarianAgentCard result={props.contrarianAnalysis} />
+                    </SidekickAgentCard>
+                </Tabs.Panel>
                  <Tabs.Panel id={TABS.ESG}>
                     <SidekickAgentCard title="ESG Analysis" icon={<LeafIcon className="h-5 w-5" />} isLoading={agentStatuses.esg.isLoading} error={agentStatuses.esg.error}>
                         <EsgAgentCard result={props.esgAnalysis} />
@@ -272,9 +250,9 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                         <MacroAgentCard result={props.macroAnalysis} />
                     </SidekickAgentCard>
                 </Tabs.Panel>
-                <Tabs.Panel id={TABS.NEWS}>
-                     <SidekickAgentCard title="Recent News" icon={<NewspaperIcon className="h-5 w-5" />} isLoading={agentStatuses.news.isLoading} error={agentStatuses.news.error}>
-                        <NewsAgentCard result={props.newsAnalysis} />
+                <Tabs.Panel id={TABS.MARKET_INTEL}>
+                     <SidekickAgentCard title="Market Intelligence" icon={<ChatBubbleLeftRightIcon className="h-5 w-5" />} isLoading={agentStatuses.market_intel.isLoading} error={agentStatuses.market_intel.error}>
+                        <MarketIntelligenceAgentCard result={props.marketIntelligenceAnalysis} />
                     </SidekickAgentCard>
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.LEADERSHIP}>
@@ -284,7 +262,12 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.COMPETITION}>
                     <SidekickAgentCard title="Competitive Landscape" icon={<TrophyIcon className="h-5 w-5" />} isLoading={agentStatuses.competitive.isLoading} error={agentStatuses.competitive.error}>
-                        <CompetitiveAgentCard result={props.competitiveAnalysis} stockSymbol={currentSymbol} calculatedMetrics={calculatedMetrics} />
+                        <CompetitiveAgentCard 
+                            result={props.competitiveAnalysis} 
+                            stockSymbol={currentSymbol} 
+                            calculatedMetrics={calculatedMetrics}
+                            currencySymbol={currencySymbol}
+                        />
                     </SidekickAgentCard>
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.SECTOR}>
@@ -295,11 +278,6 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                  <Tabs.Panel id={TABS.CALENDAR}>
                     <SidekickAgentCard title="Corporate Calendar" icon={<CalendarDaysIcon className="h-5 w-5" />} isLoading={agentStatuses.calendar.isLoading} error={agentStatuses.calendar.error}>
                         <CorporateCalendarAgentCard result={props.corporateCalendarAnalysis} />
-                    </SidekickAgentCard>
-                </Tabs.Panel>
-                <Tabs.Panel id={TABS.SENTIMENT}>
-                    <SidekickAgentCard title="Market Sentiment" icon={<ChatBubbleLeftRightIcon className="h-5 w-5" />} isLoading={agentStatuses.sentiment.isLoading} error={agentStatuses.sentiment.error}>
-                        <MarketSentimentAgentCard result={props.marketSentimentAnalysis} />
                     </SidekickAgentCard>
                 </Tabs.Panel>
             </Tabs.Panels>

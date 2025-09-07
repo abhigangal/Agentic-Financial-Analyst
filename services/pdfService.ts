@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ExecutionStep, ChiefAnalystCritique, MarketSentimentAnalysis, FinancialMetrics } from '../types';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ExecutionStep, ChiefAnalystCritique, FinancialMetrics } from '../types';
 
 // --- Color and Font Definitions for a Professional Theme ---
 const COLORS = {
@@ -491,12 +491,11 @@ export const generateAnalysisPdf = async (
   analysisResult: StockAnalysis,
   esgAnalysis: EsgAnalysis | null,
   macroAnalysis: MacroAnalysis | null,
-  newsAnalysis: NewsAnalysis | null,
+  marketIntelligenceAnalysis: MarketIntelligenceAnalysis | null,
   leadershipAnalysis: LeadershipAnalysis | null,
   competitiveAnalysis: CompetitiveAnalysis | null,
   sectorAnalysis: SectorAnalysis | null,
   corporateCalendarAnalysis: CorporateCalendarAnalysis | null,
-  marketSentimentAnalysis: MarketSentimentAnalysis | null,
   currencySymbol: string
 ) => {
     const builder = new PdfBuilder(`Financial Analysis Report (${analysisResult.stock_symbol})`);
@@ -552,17 +551,12 @@ export const generateAnalysisPdf = async (
         });
         builder.addBodyText(macroAnalysis.outlook_summary);
     }
-     if (marketSentimentAnalysis) {
-        builder.addSubsectionTitle('Market Sentiment Analysis');
-        builder.addKeyValueGrid({'Overall Sentiment': marketSentimentAnalysis.overall_sentiment});
-        builder.addBodyText(marketSentimentAnalysis.sentiment_summary);
-        builder.addBulletedList('Positive Points', marketSentimentAnalysis.key_positive_points, 'positive');
-        builder.addBulletedList('Negative Points', marketSentimentAnalysis.key_negative_points, 'negative');
-    }
-    if (newsAnalysis) {
-        builder.addSubsectionTitle('News Analysis');
-        builder.addKeyValueGrid({'Overall Sentiment': newsAnalysis.overall_sentiment});
-        builder.addBodyText(newsAnalysis.summary);
+     if (marketIntelligenceAnalysis) {
+        builder.addSubsectionTitle('Market Intelligence Analysis');
+        builder.addKeyValueGrid({'Overall Sentiment': marketIntelligenceAnalysis.overall_sentiment});
+        builder.addBodyText(marketIntelligenceAnalysis.intelligence_summary);
+        builder.addBulletedList('Positive Points', marketIntelligenceAnalysis.key_positive_points, 'positive');
+        builder.addBulletedList('Negative Points', marketIntelligenceAnalysis.key_negative_points, 'negative');
     }
      if (leadershipAnalysis) {
         builder.addSubsectionTitle('Leadership Analysis');
@@ -599,10 +593,10 @@ export const generateAnalysisPdf = async (
     }
     
     // --- Raw JSON for appendix ---
-    if (marketSentimentAnalysis) {
+    if (marketIntelligenceAnalysis) {
         builder.addNewPage();
         builder.addSectionTitle('Appendix: Raw Agent Output');
-        builder.addCodeBlock(JSON.stringify(marketSentimentAnalysis, null, 2));
+        builder.addCodeBlock(JSON.stringify(marketIntelligenceAnalysis, null, 2));
     }
 
 

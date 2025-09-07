@@ -1,6 +1,6 @@
 import React from 'react';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, NewsAnalysis, LeadershipAnalysis, CalculatedMetric, CompetitiveAnalysis } from '../types';
-import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, ScaleIcon, DocumentTextIcon, LightBulbIcon, ExclamationTriangleIcon, LinkIcon, SparklesIcon, LeafIcon, GlobeAltIcon, ClockIcon, UserGroupIcon, NewspaperIcon, InformationCircleIcon, ClipboardDocumentListIcon } from './IconComponents';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CalculatedMetric, CompetitiveAnalysis, MarketIntelligenceAnalysis } from '../types';
+import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, ScaleIcon, DocumentTextIcon, LightBulbIcon, ExclamationTriangleIcon, LinkIcon, SparklesIcon, LeafIcon, GlobeAltIcon, ClockIcon, UserGroupIcon, NewspaperIcon, InformationCircleIcon, ClipboardDocumentListIcon, ChatBubbleLeftRightIcon } from './IconComponents';
 import { Tooltip } from './Tooltip';
 import { VisualGauge } from './VisualGauge';
 import { KeyTakeaways } from './KeyTakeaways';
@@ -14,7 +14,7 @@ interface ResultDisplayProps {
   result: StockAnalysis;
   esgAnalysis: EsgAnalysis | null;
   macroAnalysis: MacroAnalysis | null;
-  newsAnalysis: NewsAnalysis | null;
+  marketIntelligenceAnalysis: MarketIntelligenceAnalysis | null;
   leadershipAnalysis: LeadershipAnalysis | null;
   competitiveAnalysis: CompetitiveAnalysis | null;
   currencySymbol: string;
@@ -35,20 +35,15 @@ const sentimentColors = {
   'N/A': 'text-slate-600 bg-slate-100 border border-slate-200 dark:text-slate-400 dark:bg-slate-800 dark:border-slate-700',
 };
 
-const confidenceColors: Record<string, string> = {
-    high: 'text-green-800 bg-green-100 border-green-200 dark:text-green-300 dark:bg-green-900/50 dark:border-green-700/50',
-    moderate: 'text-yellow-800 bg-yellow-100 border-yellow-200 dark:text-yellow-300 dark:bg-yellow-900/50 dark:border-yellow-700/50',
-    low: 'text-red-800 bg-red-100 border-red-200 dark:text-red-300 dark:bg-red-900/50 dark:border-red-700/50',
-}
+const confidenceBarColors: Record<string, string> = {
+    high: 'border-green-400 text-green-400 bg-green-500/10',
+    moderate: 'border-yellow-400 text-yellow-400 bg-yellow-500/10',
+    low: 'border-red-400 text-red-400 bg-red-500/10',
+};
 
 const getSentimentColor = (sentiment: keyof typeof sentimentColors | 'N/A') => {
   return sentimentColors[sentiment] || sentimentColors['N/A'];
 };
-
-const getConfidenceColor = (confidence: string) => {
-    return confidenceColors[confidence] || sentimentColors['N/A'];
-};
-
 
 const formatPrice = (price: number | null, currencySymbol: string) => {
     if (price === null || isNaN(price)) return 'N/A';
@@ -74,16 +69,16 @@ const formatDate = (dateString?: string) => {
 };
 
 const KeyInsight: React.FC<{ title: string; value: React.ReactNode; sentiment?: keyof typeof sentimentColors | 'N/A'; isProminent?: boolean; naReason?: string; tooltipText?: string }> = ({ title, value, sentiment, isProminent = false, naReason, tooltipText }) => (
-    <div className={`flex flex-col items-center justify-center p-3 rounded-lg bg-white border border-gray-200 text-center h-full dark:bg-slate-700/50 dark:border-slate-600`}>
+    <div className={`flex flex-col items-center justify-center p-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center h-full`}>
         <div className="flex items-center gap-1 mb-1">
-            <p className="text-xs sm:text-sm text-slate-500 whitespace-nowrap dark:text-slate-400">{title}</p>
+            <p className="text-sm text-slate-500 whitespace-nowrap dark:text-slate-400">{title}</p>
             {tooltipText && (
                 <Tooltip text={tooltipText}>
                     <InformationCircleIcon className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-help" />
                 </Tooltip>
             )}
         </div>
-        <div className={`font-bold ${sentiment ? getSentimentColor(sentiment) + ' px-2.5 py-1 rounded-md text-base sm:text-lg' : 'text-slate-800 dark:text-slate-200'} ${isProminent ? 'text-lg sm:text-xl' : 'text-base sm:text-lg'}`}>
+        <div className={`font-bold ${sentiment ? getSentimentColor(sentiment) + ' px-3 py-1.5 rounded-md text-lg' : 'text-slate-800 dark:text-slate-200'} ${isProminent ? 'text-xl' : 'text-lg'}`}>
             {value}
         </div>
         {value === 'N/A' && naReason && (
@@ -206,7 +201,7 @@ const FinancialRatioChart: React.FC<{
 };
 
 
-export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysis, macroAnalysis, newsAnalysis, leadershipAnalysis, competitiveAnalysis, currencySymbol, calculatedMetrics }) => {
+export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, currencySymbol, calculatedMetrics }) => {
   const formattedDate = formatDate(result.last_updated);
   const sentimentValue = sentimentMap[result.overall_sentiment];
 
@@ -258,7 +253,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                 <KeyTakeaways 
                     financialAnalysis={result}
                     esgAnalysis={esgAnalysis}
-                    newsAnalysis={newsAnalysis}
+                    marketIntelligenceAnalysis={marketIntelligenceAnalysis}
                     leadershipAnalysis={leadershipAnalysis}
                     currencySymbol={currencySymbol}
                 />
@@ -271,8 +266,8 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                     </div>
                 )}
 
-                <div className="mt-6 bg-gray-50/50 border border-gray-200/80 rounded-xl p-4 dark:bg-slate-800/50 dark:border-slate-700/60">
-                    <h3 className="text-base font-semibold text-center text-slate-600 dark:text-slate-300 mb-4">Key Insights</h3>
+                <div className="my-6">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 text-center">Key Insights</h3>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <KeyInsight 
                             title="Recommendation" 
@@ -302,23 +297,17 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                             naReason={result.na_justifications?.['stop_loss']}
                             tooltipText="A suggested price to sell the stock to limit potential losses if the price moves against you."
                         />
-                        <div className="col-span-2 lg:col-span-4 p-3 rounded-lg bg-white border border-gray-200 text-center h-full dark:bg-slate-700/50 dark:border-slate-600">
-                             <div className="flex items-center justify-center gap-1 mb-1">
-                                <p className="text-xs sm:text-sm text-slate-500 whitespace-nowrap dark:text-slate-400">Confidence</p>
-                                <Tooltip text={result.justification.confidence_rationale}>
-                                    <InformationCircleIcon className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-help" />
-                                </Tooltip>
-                             </div>
-                             <div className={`font-bold capitalize ${getConfidenceColor(result.confidence_score)} px-2.5 py-1 rounded-md text-base sm:text-lg`}>
-                                {result.confidence_score}
-                             </div>
+                    </div>
+                     <div className="mt-4 p-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center justify-center gap-1.5 mb-2">
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Confidence</p>
+                            <Tooltip text={result.justification.confidence_rationale}>
+                                <InformationCircleIcon className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-help" />
+                            </Tooltip>
                         </div>
-
-                        {sentimentValue !== undefined && result.overall_sentiment !== 'N/A' && (
-                            <div className="col-span-2 lg:col-span-4 p-4 rounded-lg bg-white border border-gray-200 dark:bg-slate-700/50 dark:border-slate-600">
-                                <VisualGauge label="Overall Sentiment" value={sentimentValue} segments={sentimentSegments} />
-                            </div>
-                        )}
+                        <div className={`p-2 border rounded-md text-center ${confidenceBarColors[result.confidence_score] || confidenceBarColors.moderate}`}>
+                            <p className="font-bold capitalize">{result.confidence_score}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -353,7 +342,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                 <div className="space-y-6">
                     <DetailSection title="How to Get Better Results" content={result.justification.improvement_suggestions} icon={<LightBulbIcon />} />
                     <DetailSection title="Leadership Context" content={result.contextual_inputs.leadership_summary} icon={<UserGroupIcon />} />
-                    <DetailSection title="News Context" content={result.contextual_inputs.news_summary} icon={<NewspaperIcon />} />
+                    <DetailSection title="Market Intelligence Context" content={result.contextual_inputs.market_intelligence_summary} icon={<ChatBubbleLeftRightIcon />} />
                     <DetailSection title="ESG Context" content={result.contextual_inputs.esg_summary} icon={<LeafIcon />} />
                     <DetailSection title="Macroeconomic Context" content={result.contextual_inputs.macroeconomic_summary} icon={<GlobeAltIcon />} />
                 </div>
