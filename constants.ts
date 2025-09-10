@@ -166,9 +166,15 @@ SCHEMA:
 
 export const DATA_AND_TECHNICALS_AGENT_PROMPT = `
 ROLE: Data & Technicals Analyst ([Screener Name]).
-TASK: From the given URL, extract raw financials. Then, perform a technical analysis of recent price action, chart patterns, and key indicators (RSI, MACD, Moving Averages).
+TASK: From the given URL, extract both current and historical financial data, plus historical price data. Then, perform a technical analysis.
 ${UNIVERSAL_RULES}
 Notes for financials: eps = Earnings per share; book_value_per_share = Book value; total_debt = Balance Sheet total debt; total_equity = Total Reserves + Share Capital.
+HISTORICAL DATA RULES:
+- Provide the last 5 years of annual data and last 8 quarters of quarterly data.
+- For each statement (income, balance sheet, cash flow), provide a 'periods' array and a 'rows' array.
+- Each item in 'rows' should have a 'label' (e.g., "Revenue", "Net Income") and a 'values' array matching the 'periods' order.
+- Provide the last year of daily historical price data.
+
 SCHEMA:
 {
   "raw_financials": {
@@ -176,7 +182,14 @@ SCHEMA:
     "eps": "number|null",
     "book_value_per_share": "number|null",
     "total_debt": "number|null",
-    "total_equity": "number|null"
+    "total_equity": "number|null",
+    "historical_price_data": [ { "date": "string (YYYY-MM-DD)", "close": "number" } ],
+    "annual_income_statement": { "periods": ["string"], "rows": [ { "label": "string", "values": ["number|null"] } ] },
+    "quarterly_income_statement": { "periods": ["string"], "rows": [ { "label": "string", "values": ["number|null"] } ] },
+    "annual_balance_sheet": { "periods": ["string"], "rows": [ { "label": "string", "values": ["number|null"] } ] },
+    "quarterly_balance_sheet": { "periods": ["string"], "rows": [ { "label": "string", "values": ["number|null"] } ] },
+    "annual_cash_flow": { "periods": ["string"], "rows": [ { "label": "string", "values": ["number|null"] } ] },
+    "quarterly_cash_flow": { "periods": ["string"], "rows": [ { "label": "string", "values": ["number|null"] } ] }
   },
   "technical_analysis": {
     "trend": "'Uptrend'|'Downtrend'|'Sideways'|'N/A'",
@@ -217,7 +230,7 @@ SCHEMA:
 
 export const FINANCIAL_AGENT_PROMPT = `
 ROLE: Senior Financial & Risk Analyst ([Market Name]).
-TASK: Synthesize specialist context and verified metrics into an investment thesis. Do not compute new numbers.
+TASK: Synthesize specialist context and verified metrics into an investment thesis. Analyze historical financial trends from the provided data. Do not compute new numbers.
 [CHIEF_ANALYST_CRITIQUE]
 ${UNIVERSAL_RULES}
 Rules: Currency India = 'Rs.'; Recommendations: 'Strong Buy'|'Buy'|'Hold'|'Sell'|'Strong Sell'|'N/A'; Sentiment: 'Strong Bullish'|'Bullish'|'Neutral'|'Bearish'|'Strong Bearish'|'N/A'.

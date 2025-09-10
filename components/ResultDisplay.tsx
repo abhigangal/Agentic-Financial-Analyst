@@ -154,6 +154,30 @@ const parseMetricValue = (metric: any): number | null => {
     return isNaN(num) ? null : num;
 };
 
+const getRatioTooltipText = (label: string, companyValue: number | null, industryValue: number | null): string => {
+    const whatItIs: Record<string, string> = {
+        'P/E Ratio': 'Price-to-Earnings ratio shows how much investors are willing to pay per dollar of earnings.',
+        'P/B Ratio': 'Price-to-Book ratio compares a company\'s market value to its book value.',
+        'Debt/Equity': 'Debt-to-Equity ratio measures a company\'s financial leverage by dividing its total liabilities by shareholder equity.',
+        'Return on Equity (%)': 'Return on Equity (ROE) measures how effectively management is using a company’s assets to create profits.',
+    };
+
+    const whyItMatters: Record<string, string> = {
+        'P/E Ratio': 'A lower P/E can indicate a stock is undervalued compared to its peers.',
+        'P/B Ratio': 'A lower P/B can suggest undervaluation, especially for value stocks.',
+        'Debt/Equity': 'A high ratio indicates more debt, which can be risky. A lower ratio is generally safer.',
+        'Return on Equity (%)': 'A higher ROE indicates more efficient use of shareholder equity to generate profits.',
+    };
+
+    let text = `What it is: ${whatItIs[label] || ''}\n\nWhy it matters: ${whyItMatters[label] || ''}`;
+
+    if (companyValue !== null && industryValue !== null) {
+        text += `\n\nContext: This company's ratio is ${companyValue.toFixed(2)}, compared to the industry average of ${industryValue.toFixed(2)}.`;
+    }
+    return text;
+};
+
+
 const FinancialRatioChart: React.FC<{
   label: string;
   companyValue: number | null;
@@ -173,11 +197,18 @@ const FinancialRatioChart: React.FC<{
             companyColor = companyValue > industryValue ? 'bg-green-500' : 'bg-amber-500';
         }
     }
+    
+    const tooltipText = getRatioTooltipText(label, companyValue, industryValue);
 
     return (
         <div>
             <div className="flex justify-between items-center mb-1 text-sm">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">{label}</span>
+                 <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{label}</span>
+                    <Tooltip text={tooltipText}>
+                        <InformationCircleIcon className="h-4 w-4 text-slate-400 cursor-help" />
+                    </Tooltip>
+                </div>
                 <span className="text-xs text-slate-500 dark:text-slate-400">Company vs. Industry Avg.</span>
             </div>
             <div className="space-y-2">
@@ -216,7 +247,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
   
   const TABS = {
       OVERVIEW_RISK: 'Overview & Risk',
-      FINANCIALS: 'Financials',
       STRATEGY: 'Strategy',
       CONTEXT_SOURCES: 'AI Context & Sources'
   };
@@ -244,7 +274,6 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
       <Tabs.Group>
         <Tabs.List>
             <Tabs.Tab data-test="tab-overview-risk" id={TABS.OVERVIEW_RISK}><div className="flex items-center gap-2"><DocumentTextIcon /> Overview & Risk</div></Tabs.Tab>
-            <Tabs.Tab data-test="tab-financials" id={TABS.FINANCIALS}><div className="flex items-center gap-2"><ScaleIcon /> Financials</div></Tabs.Tab>
             <Tabs.Tab data-test="tab-strategy" id={TABS.STRATEGY}><div className="flex items-center gap-2"><LightBulbIcon /> Strategy</div></Tabs.Tab>
             <Tabs.Tab data-test="tab-context-sources" id={TABS.CONTEXT_SOURCES}><div className="flex items-center gap-2"><SparklesIcon /> AI Context & Sources</div></Tabs.Tab>
         </Tabs.List>
@@ -274,7 +303,7 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                             value={result.recommendation} 
                             sentiment={result.recommendation} 
                             naReason={result.na_justifications?.['recommendation']} 
-                            tooltipText="The overall action suggested by the AI based on its complete analysis (e.g., Buy, Hold, Sell)."
+                            tooltipText="What it is: The overall action suggested by the AI based on its complete analysis (e.g., Buy, Hold, Sell)."
                         />
                         <KeyInsight 
                             title="Short-Term Target"
@@ -312,23 +341,16 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                 </div>
 
                 {result.risk_analysis && <RiskDashboard analysis={result.risk_analysis} />}
-            </Tabs.Panel>
-            
-            <Tabs.Panel id={TABS.FINANCIALS}>
-                <div className="space-y-6">
-                    <DetailSection title="Profit & Loss Analysis" content={result.justification.profit_and_loss_summary} icon={<ClipboardDocumentListIcon />} />
-                    <DetailSection title="Balance Sheet Analysis" content={result.justification.balance_sheet_summary} icon={<ClipboardDocumentListIcon />} />
-                    <DetailSection title="Financial Ratios" icon={<ScaleIcon />}>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            <FinancialRatioChart label="P/E Ratio" companyValue={companyPERatio} industryValue={industryPERatio} isLowerBetter={true} />
-                            <FinancialRatioChart label="P/B Ratio" companyValue={companyPBRatio} industryValue={industryPBRatio} isLowerBetter={true} />
-                            <FinancialRatioChart label="Debt/Equity" companyValue={companyDebtToEquity} industryValue={industryDebtToEquity} isLowerBetter={true} />
-                            <FinancialRatioChart label="Return on Equity (%)" companyValue={companyROE} industryValue={industryROE} />
-                        </div>
-                    </DetailSection>
-                    <DetailSection title="Ownership Summary" content={result.justification.ownership_summary} icon={<UserGroupIcon />} />
-                    <DetailSection title="Technical Summary" content={result.justification.technical_summary} icon={result.justification.technical_summary?.toLowerCase().includes('bullish') || result.justification.technical_summary?.toLowerCase().includes('uptrend') ? <ArrowTrendingUpIcon/> : <ArrowTrendingDownIcon/>} />
-                </div>
+
+                <DetailSection title="Financial Ratios" icon={<ScaleIcon />}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        <FinancialRatioChart label="P/E Ratio" companyValue={companyPERatio} industryValue={industryPERatio} isLowerBetter={true} />
+                        <FinancialRatioChart label="P/B Ratio" companyValue={companyPBRatio} industryValue={industryPBRatio} isLowerBetter={true} />
+                        <FinancialRatioChart label="Debt/Equity" companyValue={companyDebtToEquity} industryValue={industryDebtToEquity} isLowerBetter={true} />
+                        <FinancialRatioChart label="Return on Equity (%)" companyValue={companyROE} industryValue={industryROE} />
+                    </div>
+                </DetailSection>
+
             </Tabs.Panel>
 
             <Tabs.Panel id={TABS.STRATEGY}>

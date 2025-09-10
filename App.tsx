@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, DataAndTechnicalsAnalysis } from './types';
@@ -559,6 +557,7 @@ const App: React.FC = () => {
                   agentStatuses={agentStatuses}
                   executionLog={executionLog}
                   analysisPlan={analysisPlan}
+                  rawFinancials={rawFinancials}
                   calculatedMetrics={calculatedMetrics}
               />
           </main>

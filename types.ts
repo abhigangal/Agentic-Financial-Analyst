@@ -194,12 +194,35 @@ export interface ContrarianAnalysis {
   undervalued_positive_catalysts: string[];
 }
 
+export interface HistoricalPriceDataPoint {
+    date: string; // YYYY-MM-DD
+    close: number;
+}
+
+export interface FinancialStatementRow {
+    label: string;
+    values: (number | null)[];
+}
+
+export interface FinancialStatement {
+    periods: string[]; // e.g., ["2023", "2022", "2021"]
+    rows: FinancialStatementRow[];
+}
+
 export interface RawFinancials {
     current_price: number | null;
     eps: number | null; // Earnings Per Share
     book_value_per_share: number | null;
     total_debt: number | null;
     total_equity: number | null;
+    // New historical data
+    historical_price_data?: HistoricalPriceDataPoint[];
+    annual_income_statement?: FinancialStatement;
+    quarterly_income_statement?: FinancialStatement;
+    annual_balance_sheet?: FinancialStatement;
+    quarterly_balance_sheet?: FinancialStatement;
+    annual_cash_flow?: FinancialStatement;
+    quarterly_cash_flow?: FinancialStatement;
 }
 
 export interface DataAndTechnicalsAnalysis {
