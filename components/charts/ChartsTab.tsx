@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { RawFinancials, FinancialStatement } from '../../types';
+import { RawFinancials, FinancialStatement, TechnicalAnalysis } from '../../types';
 import { SimpleChart, ChartFundamentalData } from './SimpleChart';
 
 interface ChartsTabProps {
   rawFinancials: RawFinancials | null;
+  technicalAnalysis: TechnicalAnalysis | null;
 }
 
 const fundamentalOptions = [
@@ -27,14 +28,15 @@ const extractFundamentalData = (statement: FinancialStatement | undefined, rowLa
 };
 
 
-export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials }) => {
+export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials, technicalAnalysis }) => {
     const [selectedFundamentalKey, setSelectedFundamentalKey] = useState<string>('revenue');
 
     const priceData = useMemo(() => {
-        return rawFinancials?.historical_price_data?.map(d => ({
+        if (!rawFinancials?.historical_price_data) return [];
+        return rawFinancials.historical_price_data.map(d => ({
             date: new Date(d.date),
             value: d.close
-        })) || [];
+        })).sort((a, b) => a.date.getTime() - b.date.getTime()); // Ensure data is sorted
     }, [rawFinancials]);
 
     const selectedFundamental = useMemo(() => {
@@ -59,10 +61,11 @@ export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials }) => {
         );
     }
     
-    if (!priceData || priceData.length === 0) {
+    // Specific check for price data after confirming rawFinancials exists
+    if (priceData.length === 0) {
          return (
             <div className="flex items-center justify-center p-8 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 h-full text-slate-500">
-                Historical price data is not available for this stock.
+                Historical price data could not be retrieved for this stock.
             </div>
         );
     }
@@ -93,6 +96,7 @@ export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials }) => {
                     priceData={priceData} 
                     fundamentalData={fundamentalData} 
                     fundamentalLabel={selectedFundamental?.label || ''}
+                    forecast={technicalAnalysis?.forecast}
                 />
             </div>
         </div>

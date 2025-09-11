@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ExecutionStep, ChiefAnalystCritique, FinancialMetrics } from '../types';
+// FIX: Added ExecutionStep type for generateMethodologyPdf function.
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ChiefAnalystCritique, FinancialMetrics, TechnicalAnalysis, ContrarianAnalysis, ExecutiveProfile, ExecutionStep } from '../types';
 
 // --- Color and Font Definitions for a Professional Theme ---
 const COLORS = {
@@ -34,12 +35,9 @@ const getFilenameTimestamp = (): string => {
 
 const formatPrice = (price: number | null, currencySymbol: string): string => {
     if (price === null || isNaN(price)) return 'N/A';
-    // The Rupee symbol '₹' renders incorrectly in jsPDF's default fonts.
-    // We intentionally omit it to prevent display bugs, while keeping other symbols.
     const symbolToShow = currencySymbol === '₹' ? '' : currencySymbol;
     return `${symbolToShow}${price.toFixed(2)}`;
 };
-
 
 const getMetricValue = (metric: CalculatedMetric | number | string | null): string => {
     if (metric === null || metric === undefined) return 'N/A';
@@ -53,7 +51,6 @@ const getMetricValue = (metric: CalculatedMetric | number | string | null): stri
     }
     return 'N/A';
 };
-
 
 const formatDate = (dateString?: string): string | null => {
     if (!dateString) return null;
@@ -77,13 +74,6 @@ class PdfBuilder {
 
   constructor(title: string) {
     this.doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-    
-    // Noto Sans would be embedded here in a real build for full Unicode (e.g., Rupee symbol).
-    // For this environment, we rely on jsPDF's built-in fonts and careful string handling.
-    // this.doc.addFileToVFS('NotoSans-Regular.ttf', ...);
-    // this.doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    // this.doc.setFont('NotoSans');
-
     this.pageHeight = this.doc.internal.pageSize.getHeight();
     this.pageWidth = this.doc.internal.pageSize.getWidth();
     this.contentWidth = this.pageWidth - this.margin * 2;
@@ -94,7 +84,7 @@ class PdfBuilder {
   private addPageIfNeeded(requiredHeight: number) {
     if (this.y + requiredHeight > this.pageHeight - this.margin) {
       this.doc.addPage();
-      this.y = this.margin + 20; // Extra top margin on new pages
+      this.y = this.margin + 20;
     }
   }
 
@@ -103,15 +93,13 @@ class PdfBuilder {
       for (let i = 1; i <= pageCount; i++) {
           this.doc.setPage(i);
           
-          // Header
           this.doc.setFontSize(FONT_SIZES.SMALL);
           this.doc.setFont('helvetica', 'bold');
           this.doc.setTextColor(COLORS.SECONDARY_TEXT);
           this.doc.text(this.headerTitle, this.margin, this.margin - 15);
           this.doc.setDrawColor(COLORS.BORDER_LIGHT);
-          this.doc.line(this.margin, this.margin-5, this.pageWidth - this.margin, this.margin-5);
+          this.doc.line(this.margin, this.margin - 5, this.pageWidth - this.margin, this.margin - 5);
           
-          // Footer
           const pageStr = `Page ${i} of ${pageCount}`;
           this.doc.setDrawColor(COLORS.BORDER_LIGHT);
           this.doc.line(this.margin, this.pageHeight - this.margin, this.pageWidth - this.margin, this.pageHeight - this.margin);
@@ -163,8 +151,7 @@ class PdfBuilder {
       this.y += 18;
   }
   
-  addBodyText(text: string | null | undefined, options: { isPreformatted?: boolean } = {}) {
-    // Sanitize common problematic characters for PDF rendering.
+  addBodyText(text: string | null | undefined) {
     const sanitizedText = String(text || '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\u00A0/g, ' ');
     if (!sanitizedText) return;
 
@@ -181,11 +168,7 @@ class PdfBuilder {
       if (!items || items.length === 0) return;
       this.addPageIfNeeded(20 + items.length * 15);
       
-      const colors = {
-          positive: COLORS.GREEN,
-          negative: COLORS.RED,
-          neutral: COLORS.PRIMARY_TEXT
-      };
+      const colors = { positive: COLORS.GREEN, negative: COLORS.RED, neutral: COLORS.PRIMARY_TEXT };
       
       this.doc.setFontSize(FONT_SIZES.BODY);
       this.doc.setFont('helvetica', 'bold');
@@ -204,17 +187,17 @@ class PdfBuilder {
       this.addSpacer(10);
   }
   
-  addKeyValueGrid(data: Record<string, string | null | undefined>) {
+  addKeyValueGrid(data: Record<string, string | null | undefined>, columns: number = 3) {
     const entries = Object.entries(data).filter(([, value]) => value);
     if (entries.length === 0) return;
 
     const boxHeight = 40;
-    const boxWidth = this.contentWidth / 3 - 5;
+    const boxWidth = this.contentWidth / columns - ((columns - 1) * 7.5 / columns);
     this.addPageIfNeeded(boxHeight + 10);
     
     entries.forEach(([key, value], index) => {
-      const x = this.margin + (index % 3) * (boxWidth + 7.5);
-      if (index > 0 && index % 3 === 0) {
+      const x = this.margin + (index % columns) * (boxWidth + 7.5);
+      if (index > 0 && index % columns === 0) {
         this.y += boxHeight + 10;
         this.addPageIfNeeded(boxHeight + 10);
       }
@@ -235,85 +218,12 @@ class PdfBuilder {
     this.y += boxHeight + 15;
   }
 
-
-  addSourceList(sources: GroundingSource[]) {
-    this.addPageIfNeeded(20 + sources.length * 15);
-    this.doc.setFontSize(FONT_SIZES.SMALL);
-    sources.forEach(source => {
-        const text = `• ${source.title || source.uri}`;
-        const lines = this.doc.splitTextToSize(text, this.contentWidth);
-        this.addPageIfNeeded(lines.length * 10 + 5);
-        this.doc.setTextColor(COLORS.ACCENT_BLUE);
-        this.doc.textWithLink(lines[0], this.margin + 10, this.y, { url: source.uri });
-        if (lines.length > 1) {
-            this.doc.text(lines.slice(1), this.margin + 10, this.y + 10);
-        }
-        this.y += lines.length * 10 + 5;
-    });
-    this.addSpacer(10);
-  }
-
-  addCodeBlock(text: string | undefined) {
-    if (!text) return;
-    let prettyText = text;
-    try {
-        prettyText = JSON.stringify(JSON.parse(text), null, 2);
-    } catch (e) { /* Not valid JSON, use the text as is */ }
-
-    const lines = this.doc.splitTextToSize(prettyText, this.contentWidth - 20);
-    const rectHeight = lines.length * 9 + 20; // Using 9 for Courier font size + line spacing
-    this.addPageIfNeeded(rectHeight + 10);
-    
-    this.doc.setFillColor(COLORS.CODE_BG);
+  addKeyInsightBox(title: string, value: string, color: string, x: number) {
+    const boxWidth = this.contentWidth / 4 - 5;
+    const boxHeight = 50;
     this.doc.setDrawColor(COLORS.BORDER_LIGHT);
-    this.doc.roundedRect(this.margin, this.y, this.contentWidth, rectHeight, 5, 5, 'FD');
+    this.doc.roundedRect(x, this.y, boxWidth, boxHeight, 5, 5, 'S');
     
-    this.doc.setFont('courier', 'normal');
-    this.doc.setFontSize(FONT_SIZES.SMALL);
-    this.doc.setTextColor(COLORS.PRIMARY_TEXT);
-    this.doc.text(lines, this.margin + 10, this.y + 15);
-    this.y += rectHeight + 15;
-  }
-  
-  addStep(step: ExecutionStep) {
-    const stepTitle = `${step.agentKey.toUpperCase()}: ${step.stepName}`;
-    const statusText = step.status.charAt(0).toUpperCase() + step.status.slice(1);
-    
-    const inputLines = step.input ? this.doc.splitTextToSize(step.input, this.contentWidth - 20).length : 0;
-    const outputLines = step.output ? this.doc.splitTextToSize(step.output, this.contentWidth - 20).length : 0;
-    const requiredHeight = 50 + (inputLines * 9) + (outputLines * 9);
-    this.addPageIfNeeded(requiredHeight);
-
-    this.doc.setDrawColor(COLORS.BORDER_LIGHT);
-    this.doc.line(this.margin, this.y, this.pageWidth - this.margin, this.y);
-    this.y += 15;
-
-    this.doc.setFontSize(FONT_SIZES.H3);
-    this.doc.setFont('helvetica', 'bold');
-    this.doc.setTextColor(COLORS.PRIMARY_TEXT);
-    this.doc.text(stepTitle, this.margin, this.y);
-
-    const statusWidth = this.doc.getTextWidth(statusText);
-    this.doc.setFontSize(FONT_SIZES.SMALL);
-    this.doc.setFont('helvetica', 'normal');
-    this.doc.setTextColor(COLORS.SECONDARY_TEXT);
-    this.doc.text(statusText, this.pageWidth - this.margin - statusWidth, this.y);
-    
-    this.y += 20;
-
-    if (step.input) {
-        this.addSubsectionTitle('Input');
-        this.addCodeBlock(step.input);
-    }
-    if (step.output) {
-        this.addSubsectionTitle('Output');
-        this.addCodeBlock(step.output);
-    }
-    
-    this.addSpacer(10);
-  }
-  
-  addKeyInsightBox(title: string, value: string, color: string, x: number, boxWidth: number, boxHeight: number) {
     this.doc.setFontSize(FONT_SIZES.SMALL);
     this.doc.setTextColor(COLORS.SECONDARY_TEXT);
     this.doc.text(title, x + 10, this.y + 15);
@@ -325,26 +235,28 @@ class PdfBuilder {
   }
 
   addKeyInsightsGrid(analysisResult: StockAnalysis, currencySymbol: string) {
-    const boxWidth = this.contentWidth / 4 - 5;
-    const boxHeight = 50;
-    this.addPageIfNeeded(boxHeight + 20);
+    this.addPageIfNeeded(70);
     const startX = this.margin;
+    const boxWidth = this.contentWidth / 4 - 5;
     
+    const st = analysisResult.target_price.short_term;
+    const stValue = (st?.low !== null && st?.high !== null) ? `${formatPrice(st.low, currencySymbol)} - ${formatPrice(st.high, currencySymbol)}` : 'N/A';
+        
+    const lt = analysisResult.target_price.long_term;
+    const ltValue = (lt?.low !== null && lt?.high !== null) ? `${formatPrice(lt.low, currencySymbol)} - ${formatPrice(lt.high, currencySymbol)}` : 'N/A';
+
     const insights = [
         { title: 'Recommendation', value: analysisResult.recommendation, color: COLORS.ACCENT_BLUE },
-        { title: 'Short-Term Target', value: formatPrice(parseFloat(getMetricValue(analysisResult.target_price.short_term)), currencySymbol), color: COLORS.PRIMARY_TEXT },
-        { title: 'Long-Term Target', value: formatPrice(parseFloat(getMetricValue(analysisResult.target_price.long_term)), currencySymbol), color: COLORS.PRIMARY_TEXT },
+        { title: 'Short-Term Target', value: stValue, color: COLORS.PRIMARY_TEXT },
+        { title: 'Long-Term Target', value: ltValue, color: COLORS.PRIMARY_TEXT },
         { title: 'Stop Loss', value: formatPrice(parseFloat(getMetricValue(analysisResult.stop_loss)), currencySymbol), color: COLORS.RED }
     ];
 
     insights.forEach((insight, i) => {
-        const x = startX + i * (boxWidth + 6.5);
-        this.doc.setDrawColor(COLORS.BORDER_LIGHT);
-        this.doc.roundedRect(x, this.y, boxWidth, boxHeight, 5, 5, 'S');
-        this.addKeyInsightBox(insight.title, insight.value, insight.color, x, boxWidth, boxHeight);
+        this.addKeyInsightBox(insight.title, insight.value, insight.color, startX + i * (boxWidth + 6.5));
     });
     
-    this.y += boxHeight + 20;
+    this.y += 70;
   }
 
   addPriceSummary(analysis: StockAnalysis, currencySymbol: string) {
@@ -366,7 +278,7 @@ class PdfBuilder {
     this.doc.text(changeText, this.margin, this.y + 15);
     
     this.y += 35;
-}
+  }
   
   addRiskAnalysis(riskAnalysis: RiskAnalysis) {
       const { risk_score, risk_level, summary, key_risk_factors } = riskAnalysis;
@@ -384,7 +296,7 @@ class PdfBuilder {
       this.addBulletedList('Key Risk Factors:', key_risk_factors, 'negative');
   }
   
-  addCompetitiveTableWithCharts(analysis: CompetitiveAnalysis) {
+  addCompetitiveTable(analysis: CompetitiveAnalysis) {
     const headers = ['METRIC', 'TARGET CO.', ...analysis.competitors.map(c => c.name.toUpperCase()), 'INDUSTRY AVG.'];
     const metrics: (keyof FinancialMetrics)[] = ['pe_ratio', 'pb_ratio', 'debt_to_equity', 'roe'];
 
@@ -407,20 +319,31 @@ class PdfBuilder {
         styles: { fontSize: FONT_SIZES.SMALL, cellPadding: 4, valign: 'middle' },
         headStyles: { fillColor: COLORS.HEADER_BG, textColor: COLORS.HEADER_TEXT, fontStyle: 'bold' },
         didDrawCell: (data) => {
-            if (data.section === 'body' && data.column.index > 0) {
-                const rawValue = bodyData[data.row.index][data.column.index] as string;
+            if (data.section === 'body' && data.column.index > 0 && data.cell.raw) {
+                const rawValue = String(data.cell.raw);
+                const allValues = (data.row.raw as (string|{content:string})[]).slice(1).map(v => parseFloat(String(typeof v === 'object' ? v.content : v))).filter(v => !isNaN(v));
+                if (allValues.length === 0) return;
+
+                const targetValue = parseFloat(String(data.row.raw[1]));
                 const numValue = parseFloat(rawValue);
-                if (!isNaN(numValue) && Array.isArray(data.row.raw)) {
-                    const allValues = data.row.raw.slice(1).map(v => parseFloat(v as string)).filter(v => !isNaN(v));
-                    const maxValue = Math.max(...allValues);
+
+                if (!isNaN(numValue) && !isNaN(targetValue)) {
+                    let barColor = '#d1d5db'; // gray-300
+                    const isLowerBetter = ['pe_ratio', 'pb_ratio', 'debt_to_equity'].includes(metrics[data.row.index]);
                     
+                    if (isLowerBetter) {
+                        if (numValue <= targetValue) barColor = COLORS.GREEN;
+                        else if (numValue > targetValue * 1.1) barColor = COLORS.YELLOW;
+                    } else { // higher is better (ROE)
+                        if (numValue >= targetValue) barColor = COLORS.GREEN;
+                        else if (numValue < targetValue * 0.9) barColor = COLORS.YELLOW;
+                    }
+
+                    const maxValue = Math.max(...allValues.map(v => Math.abs(v)));
                     if (maxValue > 0) {
-                        const barWidth = (numValue / maxValue) * (data.cell.width - 6);
-                        const isLowerBetter = ['pe_ratio', 'pb_ratio', 'debt_to_equity'].includes(metrics[data.row.index]);
-                        const barColor = isLowerBetter ? (numValue < (maxValue / 2) ? COLORS.GREEN : COLORS.YELLOW) : (numValue > (maxValue / 2) ? COLORS.GREEN : COLORS.YELLOW);
-                        
+                        const barWidth = (Math.abs(numValue) / maxValue) * (data.cell.width - 8);
                         this.doc.setFillColor(barColor);
-                        this.doc.rect(data.cell.x + 3, data.cell.y + data.cell.height - 8, barWidth, 4, 'F');
+                        this.doc.rect(data.cell.x + 4, data.cell.y + data.cell.height - 10, barWidth, 6, 'F');
                     }
                 }
             }
@@ -430,18 +353,40 @@ class PdfBuilder {
     this.y = (this.doc as any).lastAutoTable.finalY + 20;
   }
 
-   addDebateLog(critique: ChiefAnalystCritique & { refined_answer?: string }) {
-        this.addPageIfNeeded(100);
-        this.addSubsectionTitle("Identified Conflict");
-        this.addBodyText(critique.conflict_summary);
-        this.addSubsectionTitle("Remediation Question Sent To Specialist");
-        this.addBodyText(`To the ${critique.target_agent} Agent: "${critique.remediation_question}"`);
-        if (critique.refined_answer) {
-            this.addSubsectionTitle("Refined Answer from Specialist");
-            this.addCodeBlock(critique.refined_answer);
-        }
-        this.addSpacer(20);
-    }
+  addLeadershipTable(executives: ExecutiveProfile[]) {
+    this.addPageIfNeeded(executives.length * 20 + 30);
+    autoTable(this.doc, {
+        head: [['Name', 'Role', 'Tenure', 'Summary']],
+        body: executives.map(e => [e.name, e.role, e.tenure, e.summary]),
+        startY: this.y,
+        theme: 'striped',
+        headStyles: { fillColor: COLORS.HEADER_BG },
+    });
+    this.y = (this.doc as any).lastAutoTable.finalY + 20;
+  }
+
+// FIX: Added addTable method to PdfBuilder to support tabular data in methodology export.
+  addTable(headers: string[][], body: (string|number)[][]) {
+    this.addPageIfNeeded(20 * body.length + 40); // Rough estimate for height
+    autoTable(this.doc, {
+        head: headers,
+        body: body,
+        startY: this.y,
+        theme: 'grid',
+        styles: { fontSize: FONT_SIZES.SMALL, cellPadding: 4, valign: 'middle' },
+        headStyles: { fillColor: COLORS.HEADER_BG, textColor: COLORS.HEADER_TEXT, fontStyle: 'bold' },
+    });
+    this.y = (this.doc as any).lastAutoTable.finalY + 20;
+  }
+
+  addDebateLog(critique: ChiefAnalystCritique & { refined_answer?: string }) {
+    this.addPageIfNeeded(100);
+    this.addSubsectionTitle("Identified Conflict");
+    this.addBodyText(critique.conflict_summary);
+    this.addSubsectionTitle("Remediation Question Sent To Specialist");
+    this.addBodyText(`To the ${critique.target_agent} Agent: "${critique.remediation_question}"`);
+    this.addSpacer(20);
+  }
 
   addSpacer(height: number) {
     this.addPageIfNeeded(height);
@@ -459,29 +404,39 @@ class PdfBuilder {
   }
 }
 
+// FIX: Added generateMethodologyPdf function to allow exporting the methodology report.
 export const generateMethodologyPdf = async (
-    stockSymbol: string,
-    plan: string | null,
-    steps: ExecutionStep[],
-    sources: GroundingSource[]
+  stockSymbol: string,
+  plan: string | null,
+  steps: ExecutionStep[],
+  consolidatedSources: GroundingSource[]
 ) => {
     const builder = new PdfBuilder(`Methodology Report (${stockSymbol})`);
-    builder.buildTitlePage('Methodology Report', stockSymbol);
-    
+    builder.buildTitlePage('Methodology & Execution Log', `For Stock: ${stockSymbol}`);
+
     if (plan) {
         builder.addSectionTitle('Analysis Plan');
         builder.addBodyText(plan);
-        builder.addSpacer(20);
     }
 
-    if (sources && sources.length > 0) {
-        builder.addSectionTitle('Consolidated Sources');
-        builder.addSourceList(sources);
-        builder.addSpacer(20);
+    if (steps.length > 0) {
+        builder.addSectionTitle('Execution Log');
+        builder.addTable(
+            [['Timestamp', 'Agent', 'Step', 'Status']],
+            steps.map(step => [
+                new Date(step.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                step.agentKey.toUpperCase(),
+                step.stepName,
+                step.status,
+            ])
+        );
     }
-    
-    builder.addSectionTitle('Execution Log');
-    steps.forEach(step => builder.addStep(step));
+
+    if (consolidatedSources && consolidatedSources.length > 0) {
+        builder.addSectionTitle('Consolidated Sources');
+        const sourcesText = consolidatedSources.map(s => `• ${s.title || 'Untitled'}:\n  ${s.uri}`).join('\n\n');
+        builder.addBodyText(sourcesText);
+    }
 
     const filename = `Methodology_${stockSymbol}_${getFilenameTimestamp()}.pdf`;
     builder.save(filename);
@@ -496,78 +451,76 @@ export const generateAnalysisPdf = async (
   competitiveAnalysis: CompetitiveAnalysis | null,
   sectorAnalysis: SectorAnalysis | null,
   corporateCalendarAnalysis: CorporateCalendarAnalysis | null,
+  technicalAnalysis: TechnicalAnalysis | null,
+  contrarianAnalysis: ContrarianAnalysis | null,
   currencySymbol: string
 ) => {
     const builder = new PdfBuilder(`Financial Analysis Report (${analysisResult.stock_symbol})`);
     builder.buildTitlePage('Financial Analysis Report', analysisResult.share_name || analysisResult.stock_symbol);
     
-    // --- Key Insights & Risk ---
-    builder.addSectionTitle('Key Insights & Recommendation');
+    // --- Page 1: Executive Summary ---
+    builder.addSectionTitle('Executive Summary & Recommendation');
     builder.addPriceSummary(analysisResult, currencySymbol);
     builder.addKeyInsightsGrid(analysisResult, currencySymbol);
     if (analysisResult.risk_analysis) {
         builder.addRiskAnalysis(analysisResult.risk_analysis);
     }
-    builder.addSpacer(20);
-
-    // --- Investment Thesis ---
-    builder.addSectionTitle('Investment Thesis & Justification');
-    builder.addSubsectionTitle('Overall Recommendation');
+    builder.addSpacer(10);
+    builder.addSubsectionTitle('Investment Thesis');
     builder.addBodyText(analysisResult.justification.overall_recommendation);
-    builder.addSubsectionTitle('Confidence Rationale');
-    builder.addBodyText(analysisResult.justification.confidence_rationale);
     builder.addSubsectionTitle('Nutshell Summary');
     builder.addBodyText(analysisResult.justification.nutshell_summary);
-    builder.addSpacer(20);
-    
-    // --- Financials ---
+
+    builder.addNewPage();
+
+    // --- Page 2: Financial & Agent Deep Dives ---
     builder.addSectionTitle('Financial Analysis');
     builder.addSubsectionTitle('Profit & Loss Summary');
     builder.addBodyText(analysisResult.justification.profit_and_loss_summary);
     builder.addSubsectionTitle('Balance Sheet Summary');
     builder.addBodyText(analysisResult.justification.balance_sheet_summary);
-    builder.addSubsectionTitle('Financial Ratios Summary');
-    builder.addBodyText(analysisResult.justification.financial_ratios_summary);
-    builder.addSpacer(20);
-
-    // --- Detailed Contextual Summaries from Agents ---
+    
     builder.addSectionTitle('Detailed Specialist Agent Analysis');
-    if (esgAnalysis) {
-        builder.addSubsectionTitle('ESG Analysis');
+
+    if (technicalAnalysis) {
+        builder.addSubsectionTitle('Technical Analysis');
         builder.addKeyValueGrid({
-            'ESG Score': esgAnalysis.score,
-            'Momentum': esgAnalysis.esg_momentum,
-            'Confidence': esgAnalysis.score_confidence || 'N/A',
-            'Last Updated': formatDate(esgAnalysis.last_updated),
+            'Trend': technicalAnalysis.trend,
+            'Support': technicalAnalysis.support_level,
+            'Resistance': technicalAnalysis.resistance_level,
         });
-        builder.addBodyText(esgAnalysis.justification.overall_summary);
+        builder.addBodyText(technicalAnalysis.summary);
     }
-    if (macroAnalysis) {
-        builder.addSubsectionTitle('Macroeconomic Analysis');
-        builder.addKeyValueGrid({
-            'GDP Growth': macroAnalysis.gdp_growth,
-            'Inflation Rate': macroAnalysis.inflation_rate,
-            'Interest Rate': macroAnalysis.interest_rate
-        });
-        builder.addBodyText(macroAnalysis.outlook_summary);
+
+    if (contrarianAnalysis) {
+        builder.addSubsectionTitle('Contrarian "Bear Case" Analysis');
+        builder.addBodyText(contrarianAnalysis.bear_case_summary);
+        builder.addBulletedList("Key Contrarian Points", contrarianAnalysis.key_contrarian_points, 'negative');
     }
-     if (marketIntelligenceAnalysis) {
+
+    if (competitiveAnalysis) {
+        builder.addSubsectionTitle('Competitive Analysis');
+        builder.addBodyText(competitiveAnalysis.competitive_summary);
+        builder.addCompetitiveTable(competitiveAnalysis);
+    }
+
+    if (marketIntelligenceAnalysis) {
         builder.addSubsectionTitle('Market Intelligence Analysis');
         builder.addKeyValueGrid({'Overall Sentiment': marketIntelligenceAnalysis.overall_sentiment});
         builder.addBodyText(marketIntelligenceAnalysis.intelligence_summary);
         builder.addBulletedList('Positive Points', marketIntelligenceAnalysis.key_positive_points, 'positive');
         builder.addBulletedList('Negative Points', marketIntelligenceAnalysis.key_negative_points, 'negative');
     }
-     if (leadershipAnalysis) {
+    
+    builder.addNewPage();
+
+    if (leadershipAnalysis) {
         builder.addSubsectionTitle('Leadership Analysis');
         builder.addKeyValueGrid({'Overall Assessment': leadershipAnalysis.overall_assessment});
         builder.addBodyText(leadershipAnalysis.summary);
+        builder.addLeadershipTable(leadershipAnalysis.key_executives);
     }
-    if (competitiveAnalysis) {
-        builder.addSubsectionTitle('Competitive Analysis');
-        builder.addBodyText(competitiveAnalysis.competitive_summary);
-        builder.addCompetitiveTableWithCharts(competitiveAnalysis);
-    }
+
     if (sectorAnalysis) {
         builder.addSubsectionTitle('Sector Analysis');
         builder.addKeyValueGrid({'Sector Outlook': sectorAnalysis.sector_outlook});
@@ -575,30 +528,49 @@ export const generateAnalysisPdf = async (
         builder.addBulletedList('Key Drivers', sectorAnalysis.key_drivers, 'positive');
         builder.addBulletedList('Key Risks', sectorAnalysis.key_risks, 'negative');
     }
+
+    if (esgAnalysis) {
+        builder.addSubsectionTitle('ESG Analysis');
+        builder.addKeyValueGrid({
+            'ESG Score': esgAnalysis.score,
+            'Momentum': esgAnalysis.esg_momentum,
+            'Confidence': esgAnalysis.score_confidence || 'N/A',
+        }, 3);
+        builder.addBodyText(esgAnalysis.justification.overall_summary);
+    }
+    
+    if (macroAnalysis) {
+        builder.addSubsectionTitle('Macroeconomic Analysis');
+        builder.addKeyValueGrid({
+            'GDP Growth': macroAnalysis.gdp_growth,
+            'Inflation Rate': macroAnalysis.inflation_rate,
+            'Interest Rate': macroAnalysis.interest_rate
+        }, 3);
+        builder.addBodyText(macroAnalysis.outlook_summary);
+    }
+
     if (corporateCalendarAnalysis) {
         builder.addSubsectionTitle('Corporate Calendar');
         builder.addKeyValueGrid({
             'Next Earnings': corporateCalendarAnalysis.next_earnings_date,
             'Ex-Dividend Date': corporateCalendarAnalysis.dividend_ex_date,
             'Analyst Day': corporateCalendarAnalysis.analyst_day_date
-        });
+        }, 3);
         builder.addBodyText(corporateCalendarAnalysis.summary);
     }
-    builder.addSpacer(20);
     
-    // --- Debate Log ---
     if (analysisResult.chiefAnalystCritique) {
         builder.addSectionTitle("Chief Analyst's Debate Log");
         builder.addDebateLog(analysisResult.chiefAnalystCritique);
     }
-    
-    // --- Raw JSON for appendix ---
-    if (marketIntelligenceAnalysis) {
-        builder.addNewPage();
-        builder.addSectionTitle('Appendix: Raw Agent Output');
-        builder.addCodeBlock(JSON.stringify(marketIntelligenceAnalysis, null, 2));
-    }
 
+    if (analysisResult.disclosures) {
+        builder.addSectionTitle('Disclosures and Sources');
+        builder.addSubsectionTitle('Disclaimer');
+        builder.addBodyText(analysisResult.disclosures.disclaimer);
+        builder.addSubsectionTitle('Limitations');
+        builder.addBodyText(analysisResult.disclosures.limitations);
+    }
 
     const filename = `Analysis_${analysisResult.stock_symbol}_${getFilenameTimestamp()}.pdf`;
     builder.save(filename);

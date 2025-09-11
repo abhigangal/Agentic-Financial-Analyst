@@ -113,7 +113,8 @@ export const mockStockAnalysis: StockAnalysis = {
     recommendation: 'Buy',
     confidence_score: 'high',
     investment_horizon: { short_term: 'Buy', long_term: 'Strong Buy' },
-    target_price: { short_term: 165.00, long_term: 200.00 },
+    // FIX: Type 'number' is not assignable to type '{ low: number; high: number; }'.
+    target_price: { short_term: { low: 162.00, high: 168.00 }, long_term: { low: 195.00, high: 205.00 } },
     stop_loss: 140.00,
     risk_analysis: {
         risk_score: 25,

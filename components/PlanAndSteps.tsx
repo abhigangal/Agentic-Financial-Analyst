@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ExecutionStep, GroundingSource } from '../../types';
+import { ExecutionStep, GroundingSource, StockAnalysis } from '../../types';
 import { CollapsibleSection } from './CollapsibleSection';
-import { CheckCircleIcon, ExclamationTriangleIcon, LinkIcon, PlayCircleIcon, SparklesIcon, SpinnerIcon, DocumentTextIcon, ArrowDownTrayIcon } from './IconComponents';
+import { CheckCircleIcon, ExclamationTriangleIcon, LinkIcon, PlayCircleIcon, SparklesIcon, SpinnerIcon, DocumentTextIcon, ArrowDownTrayIcon, InformationCircleIcon } from './IconComponents';
 import { generateMethodologyPdf } from '../../services/pdfService';
 
 interface PlanAndStepsProps {
@@ -10,6 +10,7 @@ interface PlanAndStepsProps {
     steps: ExecutionStep[];
     onRetry: () => void;
     consolidatedSources: GroundingSource[];
+    analysisResult: StockAnalysis | null;
 }
 
 const getStatusIcon = (status: ExecutionStep['status']) => {
@@ -27,7 +28,28 @@ const getStatusIcon = (status: ExecutionStep['status']) => {
     }
 }
 
-export const PlanAndSteps: React.FC<PlanAndStepsProps> = ({ stockSymbol, plan, steps, onRetry, consolidatedSources }) => {
+const DisclosuresSection: React.FC<{ disclosures: NonNullable<StockAnalysis['disclosures']> }> = ({ disclosures }) => (
+    <div>
+        <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Disclosures & Limitations</h3>
+        <div className="p-4 bg-gray-50 border rounded-lg dark:bg-slate-800/50 dark:border-slate-700/50 space-y-4">
+            <div>
+                <h4 className="font-bold text-slate-700 dark:text-slate-200 text-sm mb-1">Disclaimer</h4>
+                <p className="prose prose-sm max-w-none text-slate-600 dark:text-slate-300">{disclosures.disclaimer}</p>
+            </div>
+             <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+                <h4 className="font-bold text-slate-700 dark:text-slate-200 text-sm mb-1">Model Limitations</h4>
+                <p className="prose prose-sm max-w-none text-slate-600 dark:text-slate-300">{disclosures.limitations}</p>
+            </div>
+             <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+                <h4 className="font-bold text-slate-700 dark:text-slate-200 text-sm mb-1">Data Freshness</h4>
+                <p className="prose prose-sm max-w-none text-slate-600 dark:text-slate-300">{disclosures.data_freshness_statement}</p>
+            </div>
+        </div>
+    </div>
+);
+
+
+export const PlanAndSteps: React.FC<PlanAndStepsProps> = ({ stockSymbol, plan, steps, onRetry, consolidatedSources, analysisResult }) => {
     const [isExporting, setIsExporting] = useState(false);
 
     if (steps.length === 0) {
@@ -91,6 +113,9 @@ export const PlanAndSteps: React.FC<PlanAndStepsProps> = ({ stockSymbol, plan, s
                     )}
                 </button>
             </div>
+             {analysisResult?.disclosures && (
+                <DisclosuresSection disclosures={analysisResult.disclosures} />
+             )}
              {consolidatedSources && consolidatedSources.length > 0 && (
                 <div className="pt-2">
                     <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Consolidated Sources</h3>

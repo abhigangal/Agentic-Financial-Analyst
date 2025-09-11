@@ -1,4 +1,5 @@
 import React from 'react';
+import { TechnicalAnalysis } from '../../types';
 
 export interface ChartPriceData {
     date: Date;
@@ -14,39 +15,81 @@ interface SimpleChartProps {
     priceData: ChartPriceData[];
     fundamentalData: ChartFundamentalData[] | null;
     fundamentalLabel: string;
+    forecast?: TechnicalAnalysis['forecast'];
 }
 
 const AXIS_COLOR = "#94a3b8"; // slate-400
 const TEXT_COLOR = "#64748b"; // slate-500
 const PRICE_LINE_COLOR = "#3b82f6"; // blue-500
+const FORECAST_LINE_COLOR = "#8b5cf6"; // violet-500
+const CONFIDENCE_AREA_COLOR = "rgba(139, 92, 246, 0.1)"; // violet-500 with opacity
 const FUNDAMENTAL_BAR_COLOR = "rgba(100, 116, 139, 0.3)"; // slate-500 with opacity
 
-export const SimpleChart: React.FC<SimpleChartProps> = ({ priceData, fundamentalData, fundamentalLabel }) => {
+export const SimpleChart: React.FC<SimpleChartProps> = ({ priceData, fundamentalData, fundamentalLabel, forecast }) => {
     const width = 800;
     const height = 450;
     const margin = { top: 20, right: 60, bottom: 50, left: 60 };
+
+    // Guard Clause: Prevent rendering and potential errors if there's no price data.
+    if (!priceData || priceData.length === 0) {
+        return (
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+                <text x={width/2} y={height/2} textAnchor="middle" fill={TEXT_COLOR} fontSize="14">
+                    No Price Data to Display
+                </text>
+            </svg>
+        );
+    }
 
     const xMin = margin.left;
     const xMax = width - margin.right;
     const yMin = margin.top;
     const yMax = height - margin.bottom;
-
-    // Price data scaling
-    const priceValues = priceData.map(d => d.value);
-    const priceDomain = [Math.min(...priceValues) * 0.98, Math.max(...priceValues) * 1.02];
-    const dateDomain = [priceData[0].date, priceData[priceData.length - 1].date];
+    
+    // --- Date/X-axis setup ---
+    const historicalEndDate = priceData[priceData.length - 1].date;
+    const forecastEndDate = new Date(historicalEndDate);
+    forecastEndDate.setDate(forecastEndDate.getDate() + 30); // Assume a 30-day forecast horizon
+    
+    const dateDomain = [
+        priceData[0].date, 
+        forecast?.price_target != null ? forecastEndDate : historicalEndDate
+    ];
     const timeRange = dateDomain[1].getTime() - dateDomain[0].getTime();
-
+    
     const getX = (date: Date) => xMin + ((date.getTime() - dateDomain[0].getTime()) / timeRange) * (xMax - xMin);
+
+    // --- Price/Y-axis setup ---
+    const priceValues = priceData.map(d => d.value);
+    let minPrice = Math.min(...priceValues);
+    let maxPrice = Math.max(...priceValues);
+
+    if (forecast?.price_target != null && forecast.confidence_interval) {
+        const [low, high] = forecast.confidence_interval;
+        if(low != null) minPrice = Math.min(minPrice, low);
+        if(high != null) maxPrice = Math.max(maxPrice, high);
+        if(forecast.price_target != null) maxPrice = Math.max(maxPrice, forecast.price_target);
+    }
+
+    const priceDomain = [minPrice * 0.98, maxPrice * 1.02];
     const getY = (value: number) => yMax - ((value - priceDomain[0]) / (priceDomain[1] - priceDomain[0])) * (yMax - yMin);
     
-    // Fundamental data scaling
+    // --- Fundamental data scaling ---
     const fundamentalValues = fundamentalData ? fundamentalData.map(d => d.value) : [0];
     const fundamentalMax = Math.max(...fundamentalValues, 0) * 1.2;
-
     const getFundamentalY = (value: number) => yMax - (Math.max(value, 0) / fundamentalMax) * (yMax - yMin);
     
+    // --- Path and coordinate calculations ---
     const pricePath = priceData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(d.date)} ${getY(d.value)}`).join(' ');
+    
+    const lastPricePoint = priceData[priceData.length - 1];
+    const forecastPath = forecast?.price_target != null
+        ? `M ${getX(lastPricePoint.date)} ${getY(lastPricePoint.value)} L ${getX(forecastEndDate)} ${getY(forecast.price_target)}`
+        : '';
+        
+    const confidencePolygonPoints = (forecast?.confidence_interval && forecast.confidence_interval[0] != null && forecast.confidence_interval[1] != null) 
+        ? `${getX(lastPricePoint.date)},${getY(forecast.confidence_interval[0])} ${getX(forecastEndDate)},${getY(forecast.confidence_interval[0])} ${getX(forecastEndDate)},${getY(forecast.confidence_interval[1])} ${getX(lastPricePoint.date)},${getY(forecast.confidence_interval[1])}`
+        : '';
 
     const yAxisLabels = Array.from({ length: 5 }, (_, i) => {
         const value = priceDomain[0] + (i / 4) * (priceDomain[1] - priceDomain[0]);
@@ -59,7 +102,7 @@ export const SimpleChart: React.FC<SimpleChartProps> = ({ priceData, fundamental
     }) : [];
 
     const xAxisLabels = Array.from({ length: 6 }, (_, i) => {
-        const date = new Date(dateDomain[0].getTime() + (i / 5) * timeRange);
+        const date = new Date(dateDomain[0].getTime() + (i / 5) * (historicalEndDate.getTime() - dateDomain[0].getTime()));
         return { date, x: getX(date) };
     });
 
@@ -74,15 +117,22 @@ export const SimpleChart: React.FC<SimpleChartProps> = ({ priceData, fundamental
             {fundamentalData && fundamentalMax > 0 && (
                 <g>
                     {fundamentalData.map((d, i) => {
-                        const barWidth = (xMax - xMin) / (fundamentalData.length * 1.5);
-                        const barX = xMin + (i / fundamentalData.length) * (xMax-xMin) + barWidth / 2;
+                        const barWidth = (getX(historicalEndDate) - xMin) / (fundamentalData.length * 1.5);
+                        const barX = xMin + (i / fundamentalData.length) * (getX(historicalEndDate)-xMin) + barWidth / 2;
                         return <rect key={i} x={barX} y={getFundamentalY(d.value)} width={barWidth} height={yMax - getFundamentalY(d.value)} fill={FUNDAMENTAL_BAR_COLOR} />;
                     })}
                 </g>
             )}
 
+            {/* Forecast Confidence Area */}
+            {confidencePolygonPoints && <polygon points={confidencePolygonPoints} fill={CONFIDENCE_AREA_COLOR} />}
+
              {/* Price Line */}
             <path d={pricePath} fill="none" stroke={PRICE_LINE_COLOR} strokeWidth="2" />
+
+            {/* Forecast Line */}
+            {forecastPath && <path d={forecastPath} fill="none" stroke={FORECAST_LINE_COLOR} strokeWidth="2" strokeDasharray="5,5" />}
+
 
              {/* Axes Lines */}
             <line x1={xMin} y1={yMax} x2={xMax} y2={yMax} stroke={AXIS_COLOR} strokeWidth="1" />
@@ -108,6 +158,11 @@ export const SimpleChart: React.FC<SimpleChartProps> = ({ priceData, fundamental
                     {date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
                 </text>
             ))}
+            {forecast && (
+                 <text x={getX(forecastEndDate)} y={yMax + 20} textAnchor="middle" fill={FORECAST_LINE_COLOR} fontSize="12" fontWeight="bold">
+                    Forecast
+                </text>
+            )}
 
         </svg>
     );

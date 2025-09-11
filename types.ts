@@ -185,6 +185,11 @@ export interface TechnicalAnalysis {
   resistance_level: string;
   moving_averages_summary: string;
   indicators_summary: string; // e.g., RSI, MACD
+  forecast?: {
+    price_target: number | null;
+    confidence_interval: [number | null, number | null];
+    rationale: string;
+  };
   sources?: GroundingSource[];
 }
 
@@ -246,8 +251,8 @@ export interface StockAnalysis {
     long_term: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell' | 'N/A';
   };
   target_price: {
-    short_term: CalculatedMetric | number | null;
-    long_term: CalculatedMetric | number | null;
+    short_term: { low: number | null; high: number | null; };
+    long_term: { low: number | null; high: number | null; };
   };
   stop_loss: CalculatedMetric | number | null;
   risk_analysis: RiskAnalysis | null;
@@ -266,6 +271,11 @@ export interface StockAnalysis {
     nutshell_summary: string;
     overall_recommendation: string;
     confidence_rationale: string;
+    thesis_breakdown?: {
+        quantitative_view: string;
+        qualitative_view: string;
+        relative_view: string;
+    };
     profit_and_loss_summary: string;
     balance_sheet_summary: string;
     cash_flow_summary: string;
@@ -276,6 +286,11 @@ export interface StockAnalysis {
     // not to be confused with the output from the dedicated Technical Analysis agent.
     technical_summary: string; 
     improvement_suggestions: string; // Renamed from information_better_results
+  };
+  disclosures?: {
+      disclaimer: string;
+      limitations: string;
+      data_freshness_statement: string;
   };
   sources?: GroundingSource[];
   na_justifications?: { [key: string]: string; };
@@ -325,4 +340,10 @@ export interface ExecutionStep {
   confidence?: 'high' | 'moderate' | 'low' | number;
   sources?: GroundingSource[];
   remediation?: { message: string; action: string; };
+}
+
+export interface Snapshot {
+  id: string; // ISO string timestamp
+  timestamp: number;
+  analysisResult: StockAnalysis;
 }

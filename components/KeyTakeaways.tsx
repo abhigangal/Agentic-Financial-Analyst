@@ -43,9 +43,14 @@ export const KeyTakeaways: React.FC<KeyTakeawaysProps> = ({
     // Financial Recommendation Takeaway
     if (financialAnalysis.recommendation !== 'N/A') {
         let recommendationText = `The primary recommendation is to **${financialAnalysis.recommendation}**`;
-        const shortTermTarget = getMetricValue(financialAnalysis.target_price.short_term);
-        if (shortTermTarget !== null) {
-            recommendationText += ` with a short-term target of **${formatPrice(shortTermTarget, currencySymbol)}**.`;
+        // FIX: Handle target_price as a range object instead of passing it to getMetricValue.
+        const { low, high } = financialAnalysis.target_price.short_term;
+        if (low !== null && high !== null) {
+            recommendationText += ` with a short-term target range of **${formatPrice(low, currencySymbol)} to ${formatPrice(high, currencySymbol)}**.`;
+        } else if (high !== null) {
+            recommendationText += ` with a short-term target of **${formatPrice(high, currencySymbol)}**.`;
+        } else if (low !== null) {
+            recommendationText += ` with a short-term target of **${formatPrice(low, currencySymbol)}**.`;
         } else {
             recommendationText += '.';
         }

@@ -57,53 +57,76 @@
       .animate-fill-bar {
           animation: fill-bar 0.7s ease-in-out forwards;
       }
-
-      /* New animations for the agent workflow scenes */
-      @keyframes scene-fade-in {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
-      }
-      .animate-scene-fade-in {
-        animation: scene-fade-in 0.6s ease-out forwards;
-      }
-
-      @keyframes agent-slide-in-left {
-        from { transform: translateX(-60px); opacity: 0; }
-        to { transform: translateX(0px); opacity: 1; }
-      }
-      .animate-agent-slide-in-left {
-        animation: agent-slide-in-left 0.8s ease-out forwards;
+      
+      /* --- Agentic Nexus Loader Animations --- */
+      
+      /* 1. Animated Gradient Background */
+      @keyframes nexus-background-gradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
 
-      @keyframes agent-slide-in-right {
-        from { transform: translateX(60px); opacity: 0; }
-        to { transform: translateX(0px); opacity: 1; }
+      /* 2. Node Orbiting Animation */
+      @keyframes nexus-orbit {
+        from { transform: rotate(0deg) translateX(120px) rotate(0deg); }
+        to { transform: rotate(360deg) translateX(120px) rotate(-360deg); }
       }
-      .animate-agent-slide-in-right {
-        animation: agent-slide-in-right 0.8s ease-out forwards;
+
+      /* 3. Node Pulsing/Glowing Effect */
+      @keyframes nexus-pulse-glow {
+        0%, 100% { transform: scale(1); opacity: 0.7; }
+        50% { transform: scale(1.1); opacity: 1; }
+      }
+
+      /* 4. Data Stream Particle Animation */
+      @keyframes nexus-particle-flow {
+        from { offset-distance: 0%; opacity: 1; }
+        to { offset-distance: 100%; opacity: 0; }
+      }
+
+      /* 5. Typewriter Effect */
+      @keyframes nexus-typewriter {
+        from { width: 0; }
+        to { width: 100%; }
+      }
+      @keyframes nexus-blink-caret {
+        from, to { border-color: transparent; }
+        50% { border-color: currentColor; }
+      }
+
+      /* 6. Live Log Entry Appearance */
+      @keyframes nexus-log-entry-appear {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
       }
       
-      @keyframes light-flicker {
-        0%, 100% { opacity: 0.8; }
-        50% { opacity: 1; }
+      /* 7. Synaptic Line Shimmer */
+      @keyframes nexus-line-shimmer {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 0.7; }
       }
-      .animate-light-flicker {
-        animation: light-flicker 1.5s ease-in-out infinite;
-      }
-      
-      @keyframes draw-checkmark {
-        to { stroke-dashoffset: 0; }
-      }
-      .animate-draw-checkmark {
-        animation: draw-checkmark 0.5s ease-out 0.3s forwards;
+
+      /* 8. Synaptic Particle Travel */
+      @keyframes nexus-particle-travel {
+        from { transform: translateY(0); opacity: 1; }
+        to { transform: translateY(-120px); opacity: 0; } /* 120px is the orbit radius */
       }
       
-      @keyframes glow {
-        0%, 100% { filter: drop-shadow(0 0 5px #4ade80); }
-        50% { filter: drop-shadow(0 0 15px #4ade80); }
-      }
-      .animate-glow {
-        animation: glow 1.5s ease-in-out infinite;
+      /* 9. Accessibility Fallback */
+      @media (prefers-reduced-motion: reduce) {
+        .nexus-background,
+        .animate-nexus-orbit,
+        .animate-nexus-pulse-glow,
+        .animate-nexus-particle-flow,
+        .nexus-status-ticker,
+        .animate-nexus-line-shimmer,
+        .animate-nexus-particle-travel {
+          animation: none !important;
+        }
+        .nexus-status-ticker::after {
+          content: none;
+        }
       }
     </style>
   <script type="importmap">

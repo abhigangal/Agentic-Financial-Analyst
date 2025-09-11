@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FinancialAdvisorIcon, SearchIcon } from './IconComponents';
+import { FinancialAdvisorIcon, SearchIcon, CameraIcon } from './IconComponents';
 import { MarketSwitcher, CurrencySwitcher } from './MarketSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { StockAnalysis } from '../types';
@@ -115,6 +115,7 @@ export interface HeaderProps {
   isAnalysisRunning: boolean;
   analysisResult: StockAnalysis | null;
   onExport: () => void;
+  onSaveSnapshot: () => void;
 }
 
 
@@ -122,7 +123,7 @@ export interface HeaderProps {
 export const Header: React.FC<HeaderProps> = (props) => {
   const { 
     selectedMarketId, onMarketChange, selectedCurrency, onCurrencyChange, 
-    analysisResult, onExport, isAnalysisRunning
+    analysisResult, onExport, isAnalysisRunning, onSaveSnapshot
   } = props;
   
   const [isExporting, setIsExporting] = useState(false);
@@ -161,11 +162,23 @@ export const Header: React.FC<HeaderProps> = (props) => {
 
         <div className="flex items-center gap-2 sm:gap-4">
             {analysisResult && (
-                <ExportButton 
-                    isLoading={isExporting}
-                    onClick={handleExport}
-                    disabled={!analysisResult || isAnalysisRunning}
-                />
+                <>
+                    <button
+                        onClick={onSaveSnapshot}
+                        disabled={isAnalysisRunning}
+                        className="flex items-center justify-center gap-2 h-9 px-4 bg-purple-600 hover:bg-purple-500 rounded-md text-white font-semibold transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed shrink-0"
+                        title="Save a snapshot of the current analysis."
+                        data-test="save-snapshot-button"
+                    >
+                        <CameraIcon className="h-5 w-5" />
+                        <span className="hidden md:inline">Save Snapshot</span>
+                    </button>
+                    <ExportButton 
+                        isLoading={isExporting}
+                        onClick={handleExport}
+                        disabled={!analysisResult || isAnalysisRunning}
+                    />
+                </>
             )}
             <div className="hidden sm:flex items-center gap-2">
               <CurrencySwitcher selectedCurrency={selectedCurrency} onCurrencyChange={onCurrencyChange} />

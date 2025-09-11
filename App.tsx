@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, DataAndTechnicalsAnalysis } from './types';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, DataAndTechnicalsAnalysis, Snapshot } from './types';
 import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getDataAndTechnicalsAnalysis, getContrarianAnalysis } from './services/geminiService';
 import { generateAnalysisPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
@@ -15,6 +15,7 @@ import { ShortcutsPanel } from './components/common/ShortcutsPanel';
 
 
 const LOCAL_STORAGE_KEY = 'agentic_financial_analyst_custom_stocks';
+const SNAPSHOTS_STORAGE_KEY = 'agentic_financial_analyst_snapshots';
 export const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 export interface AnalysisCacheItem {
@@ -120,6 +121,7 @@ const App: React.FC = () => {
     }
   });
   
+  const [snapshots, setSnapshots] = useState<Record<string, Snapshot[]>>({});
   const [analysisCache, setAnalysisCache] = useState<Record<string, AnalysisCacheItem>>({});
   const [agentCache, setAgentCache] = useState<Record<string, AgentCacheItem>>({});
   const [currentSymbol, setCurrentSymbol] = useState<string | null>(null);
@@ -129,6 +131,48 @@ const App: React.FC = () => {
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
   const [isAddingStock, setIsAddingStock] = useState(false);
   const isAnalysisRunning = analysisPhase !== 'IDLE' && analysisPhase !== 'COMPLETE' && analysisPhase !== 'ERROR' && analysisPhase !== 'PAUSED';
+  
+  // --- Snapshot Management ---
+  useEffect(() => {
+    try {
+      const savedSnapshots = localStorage.getItem(SNAPSHOTS_STORAGE_KEY);
+      setSnapshots(savedSnapshots ? JSON.parse(savedSnapshots) : {});
+    } catch (e) {
+      console.error("Failed to load snapshots from localStorage", e);
+      setSnapshots({});
+    }
+  }, []);
+
+  const handleSaveSnapshot = useCallback(() => {
+      if (!currentSymbol || !analysisResult) return;
+
+      const newSnapshot: Snapshot = {
+          id: new Date().toISOString(),
+          timestamp: Date.now(),
+          analysisResult: JSON.parse(JSON.stringify(analysisResult)), // Deep copy to prevent mutation
+      };
+
+      setSnapshots(prev => {
+          const stockSnapshots = prev[currentSymbol] ? [...prev[currentSymbol], newSnapshot] : [newSnapshot];
+          
+          // Sort by date descending and keep only the last 10
+          stockSnapshots.sort((a, b) => b.timestamp - a.timestamp);
+          if (stockSnapshots.length > 10) {
+              stockSnapshots.splice(10);
+          }
+          
+          const updatedSnapshots = { ...prev, [currentSymbol]: stockSnapshots };
+          
+          try {
+              localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(updatedSnapshots));
+          } catch (e) {
+              console.error("Failed to save snapshots to localStorage", e);
+              // Potentially show an error to the user if localStorage is full
+          }
+          
+          return updatedSnapshots;
+      });
+  }, [currentSymbol, analysisResult]);
   
   const setAgentStatus = (agent: keyof typeof agentStatuses, status: Partial<AgentStatus>) => {
     setAgentStatuses(prev => ({ ...prev, [agent]: { ...prev[agent], ...status } }));
@@ -462,12 +506,12 @@ const App: React.FC = () => {
       await generateAnalysisPdf(
         analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis,
         leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis,
-        selectedCurrency
+        technicalAnalysis, contrarianAnalysis, selectedCurrency
       );
     } catch (error) {
       console.error("PDF Export failed", error);
     }
-  }, [analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, selectedCurrency]);
+  }, [analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, technicalAnalysis, contrarianAnalysis, selectedCurrency]);
   
   const handleMarketChange = (marketId: string) => {
     if (marketId !== selectedMarketId) {
@@ -559,6 +603,7 @@ const App: React.FC = () => {
                   analysisPlan={analysisPlan}
                   rawFinancials={rawFinancials}
                   calculatedMetrics={calculatedMetrics}
+                  snapshots={snapshots[currentSymbol] || []}
               />
           </main>
         </div>
@@ -567,26 +612,32 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className="bg-gray-50 min-h-screen dark:bg-slate-900">
-        <Header 
-          selectedMarketId={selectedMarketId} 
-          onMarketChange={handleMarketChange} 
-          selectedCurrency={selectedCurrency}
-          onCurrencyChange={handleCurrencyChange}
-          allSymbols={allPredefinedSymbols}
-          onSearchSelect={handleSelectStock}
-          onSearchSubmit={handleAddStock}
-          addError={addError}
-          onClearAddError={() => setAddError(null)}
-          isAnalysisRunning={isAnalysisRunning}
-          analysisResult={analysisResult}
-          onExport={handleExportPdf}
-        />
-        <div className="container mx-auto px-2 sm:px-4 md:px-6 py-6">
-            <Breadcrumbs currentSymbol={currentSymbol} onNavigateHome={handleNavigateHome} categories={categoriesForComponents} />
-            <NutshellSummary summary={analysisResult?.justification.nutshell_summary} />
-            {renderContent()}
+      <div className="bg-gray-50 min-h-screen dark:bg-slate-900 flex flex-col">
+        <div className="flex-grow">
+          <Header 
+            selectedMarketId={selectedMarketId} 
+            onMarketChange={handleMarketChange} 
+            selectedCurrency={selectedCurrency}
+            onCurrencyChange={handleCurrencyChange}
+            allSymbols={allPredefinedSymbols}
+            onSearchSelect={handleSelectStock}
+            onSearchSubmit={handleAddStock}
+            addError={addError}
+            onClearAddError={() => setAddError(null)}
+            isAnalysisRunning={isAnalysisRunning}
+            analysisResult={analysisResult}
+            onExport={handleExportPdf}
+            onSaveSnapshot={handleSaveSnapshot}
+          />
+          <div className="container mx-auto px-2 sm:px-4 md:px-6 py-6">
+              <Breadcrumbs currentSymbol={currentSymbol} onNavigateHome={handleNavigateHome} categories={categoriesForComponents} />
+              <NutshellSummary summary={analysisResult?.justification.nutshell_summary} />
+              {renderContent()}
+          </div>
         </div>
+        <footer className="text-center py-4 px-6 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 shrink-0">
+            AI-generated analysis for informational purposes only. Not investment advice. All financial data is subject to change and may contain inaccuracies.
+        </footer>
         <ShortcutsPanel show={showShortcuts} onClose={() => setShowShortcuts(false)} />
       </div>
     </ErrorBoundary>

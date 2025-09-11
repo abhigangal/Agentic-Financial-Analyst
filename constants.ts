@@ -165,15 +165,20 @@ SCHEMA:
 `; // Move format rules into schema to cut prose. [9][1]
 
 export const DATA_AND_TECHNICALS_AGENT_PROMPT = `
-ROLE: Data & Technicals Analyst ([Screener Name]).
-TASK: From the given URL, extract both current and historical financial data, plus historical price data. Then, perform a technical analysis.
+ROLE: Data & Technicals Analyst for Screener.in.
+TASK: From the given URL, you MUST extract all requested financial statements, historical price data, and perform a technical analysis.
+INSTRUCTIONS:
+1.  **FINANCIAL TABLES**: Locate and parse the tables titled "Quarterly Results", "Profit & Loss" (this is the Annual Income Statement), "Balance Sheet", and "Cash Flow".
+2.  **PRICE CHART**: Locate and parse the historical daily price chart data for at least the last year.
+3.  **FAULT TOLERANCE**: If any specific statement, table, or data point is not available on the page, you MUST return the corresponding schema key with an empty structure or null value (e.g., "annual_cash_flow": {"periods": [], "rows": []}, "historical_price_data": []). DO NOT OMIT ANY KEYS.
+4.  **NUMBER FORMAT**: Financial values are often in "Cr." (Crores). You must parse these as numbers (e.g., "50.5 Cr." becomes 50.5).
 ${UNIVERSAL_RULES}
-Notes for financials: eps = Earnings per share; book_value_per_share = Book value; total_debt = Balance Sheet total debt; total_equity = Total Reserves + Share Capital.
+FINANCIAL DEFINITIONS: eps = "EPS in Rs"; book_value_per_share = "Book Value"; total_debt = "Borrowings" from the Balance Sheet; total_equity = "Share Capital" + "Reserves" from the Balance Sheet.
 HISTORICAL DATA RULES:
-- Provide the last 5 years of annual data and last 8 quarters of quarterly data.
-- For each statement (income, balance sheet, cash flow), provide a 'periods' array and a 'rows' array.
-- Each item in 'rows' should have a 'label' (e.g., "Revenue", "Net Income") and a 'values' array matching the 'periods' order.
-- Provide the last year of daily historical price data.
+- Provide up to the last 5 years of annual data ("Profit & Loss", "Balance Sheet", "Cash Flow").
+- Provide up to the last 8 quarters of quarterly data ("Quarterly Results").
+- For each statement, provide a 'periods' array (e.g., ["Mar 2023", "Mar 2024"]) and a 'rows' array. Each item in 'rows' must have a 'label' and a 'values' array matching the 'periods' order.
+- Provide up to the last year of daily historical price data.
 
 SCHEMA:
 {
@@ -197,7 +202,12 @@ SCHEMA:
     "support_level": "string (e.g., '145.50 (50-day MA)')",
     "resistance_level": "string (e.g., '160.00 (Recent High)')",
     "moving_averages_summary": "string (max 240 chars, e.g., 'Price is above 50-day MA, indicating short-term strength')",
-    "indicators_summary": "string (max 240 chars, e.g., 'RSI is neutral at 55; MACD shows a bullish crossover')"
+    "indicators_summary": "string (max 240 chars, e.g., 'RSI is neutral at 55; MACD shows a bullish crossover')",
+    "forecast": {
+      "price_target": "number|null",
+      "confidence_interval": ["number|null", "number|null"],
+      "rationale": "string (max 200 chars)"
+    }
   }
 }
 `;
@@ -231,11 +241,16 @@ SCHEMA:
 export const FINANCIAL_AGENT_PROMPT = `
 ROLE: Senior Financial & Risk Analyst ([Market Name]).
 TASK: Synthesize specialist context and verified metrics into an investment thesis. Analyze historical financial trends from the provided data. Do not compute new numbers.
+INSTRUCTIONS:
+1.  **Tiny Ensemble Analysis**: First, mentally form three independent perspectives: 1) **Quantitative View** (based only on financial data and metrics), 2) **Qualitative View** (based on summaries from specialist agents like news, ESG, leadership), and 3) **Relative View** (based on the competitive landscape and industry averages).
+2.  **Synthesize**: Blend these three views into your final, main recommendation and justification.
+3.  **Populate Schema**: Fill the schema below. The 'thesis_breakdown' should contain a one-sentence summary of each perspective from step 1. Populate the 'disclosures' object with a standard disclaimer, a summary of model limitations, and a data freshness statement.
+4.  **Disclosure Mandate**: When writing the 'limitations' disclosure, you MUST include a sentence stating that forecasts use specialized models validated with leakage-safe backtesting methods but are not guarantees of future performance.
+
 [CHIEF_ANALYST_CRITIQUE]
 ${UNIVERSAL_RULES}
 Rules: Currency India = 'Rs.'; Recommendations: 'Strong Buy'|'Buy'|'Hold'|'Sell'|'Strong Sell'|'N/A'; Sentiment: 'Strong Bullish'|'Bullish'|'Neutral'|'Bearish'|'Strong Bearish'|'N/A'.
-IMPORTANT: 'target_price' and 'stop_loss' MUST be a specific number. Do not use 'N/A'. Estimate if necessary.
-IMPORTANT: The 'stop_loss' value MUST be less than the 'current_price'.
+IMPORTANT: 'target_price' ranges must be specific numbers. Estimate if necessary. The 'stop_loss' value MUST be less than the 'current_price'.
 SCHEMA:
 {
     "stock_symbol": "string",
@@ -248,7 +263,7 @@ SCHEMA:
     "recommendation": "enum",
     "confidence_score": "'high'|'moderate'|'low'",
     "investment_horizon": { "short_term": "enum", "long_term": "enum" },
-    "target_price": { "short_term": "number", "long_term": "number" },
+    "target_price": { "short_term": {"low": "number|null", "high": "number|null"}, "long_term": {"low": "number|null", "high": "number|null"} },
     "stop_loss": "number",
     "risk_analysis": {
         "risk_score": "number (0-100)",
@@ -260,6 +275,11 @@ SCHEMA:
         "nutshell_summary": "string (max 200 chars, metaphoric)",
         "overall_recommendation": "string (max 600 chars)",
         "confidence_rationale": "string (max 400 chars)",
+        "thesis_breakdown": {
+          "quantitative_view": "string (max 200 chars)",
+          "qualitative_view": "string (max 200 chars)",
+          "relative_view": "string (max 200 chars)"
+        },
         "profit_and_loss_summary": "string (max 400 chars)",
         "balance_sheet_summary": "string (max 400 chars)",
         "cash_flow_summary": "string (max 400 chars)",
@@ -268,6 +288,11 @@ SCHEMA:
         "exit_strategy": "string (max 300 chars)",
         "technical_summary": "string (max 300 chars)",
         "improvement_suggestions": "string (max 300 chars)"
+    },
+    "disclosures": {
+      "disclaimer": "string",
+      "limitations": "string",
+      "data_freshness_statement": "string"
     },
     "na_justifications": "object|null"
 }

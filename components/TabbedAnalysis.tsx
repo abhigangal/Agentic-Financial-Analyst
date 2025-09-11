@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ExecutionStep, CalculatedMetric, GroundingSource, MarketIntelligenceAnalysis, TechnicalAnalysis, ContrarianAnalysis, RawFinancials } from '../types';
-// FIX: Import missing ClipboardDocumentListIcon component
-import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, ScaleIcon, ShieldExclamationIcon, PresentationChartLineIcon, ClipboardDocumentListIcon } from './IconComponents';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ExecutionStep, CalculatedMetric, GroundingSource, MarketIntelligenceAnalysis, TechnicalAnalysis, ContrarianAnalysis, RawFinancials, Snapshot } from '../types';
+import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, ScaleIcon, ShieldExclamationIcon, PresentationChartLineIcon, ClipboardDocumentListIcon, ClockIcon } from './IconComponents';
 import { ResultDisplay } from './ResultDisplay';
-import { FinancialAdvisorLoader } from './FinancialAdvisorLoader';
+import { AgenticNexusLoader } from './AgenticNexusLoader';
 import { SidekickAgentCard } from './SidekickAgentCard';
 import { EsgAgentCard } from './esg/EsgAgentCard';
 import { MacroAgentCard } from './macro/MacroAgentCard';
@@ -20,6 +19,7 @@ import { AnalysisPhase } from '../../App';
 import { PlanAndSteps } from './PlanAndSteps';
 import { ChartsTab } from './charts/ChartsTab';
 import { FinancialsTab } from './financials/FinancialsTab';
+import { SnapshotsTab } from './snapshots/SnapshotsTab';
 
 const TechnicalResultDisplay: React.FC<{ result: TechnicalAnalysis }> = ({ result }) => {
     return (
@@ -123,12 +123,14 @@ interface TabbedAnalysisProps {
   onRetryStep: () => void;
   rawFinancials: RawFinancials | null;
   calculatedMetrics: Record<string, CalculatedMetric>;
+  snapshots: Snapshot[];
 }
 
 const TABS = {
     ANALYSIS: 'Analysis',
     CHARTS: 'Charts',
     FINANCIALS: 'Financials',
+    SNAPSHOTS: 'Snapshots',
     METHODOLOGY: 'Methodology',
     ESG: 'ESG',
     MACRO: 'Macro',
@@ -142,7 +144,7 @@ const TABS = {
 };
 
 export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
-  const { currentSymbol, analysisResult, currencySymbol, onRetry, analysisPhase, agentStatuses, enabledAgents, executionLog, analysisPlan, onRetryStep, rawFinancials, calculatedMetrics } = props;
+  const { currentSymbol, analysisResult, currencySymbol, onRetry, analysisPhase, agentStatuses, enabledAgents, executionLog, analysisPlan, onRetryStep, rawFinancials, calculatedMetrics, technicalAnalysis, snapshots } = props;
   
   const isLoading = analysisPhase !== 'IDLE' && analysisPhase !== 'COMPLETE' && analysisPhase !== 'ERROR' && analysisPhase !== 'PAUSED';
   const financialError = agentStatuses.financial.error;
@@ -166,6 +168,7 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                 <Tabs.Tab id={TABS.ANALYSIS} data-test="analysis-tab-main"><div className="flex items-center gap-2"><FinancialAdvisorIcon className="h-5 w-5" /> Overall Analysis</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.CHARTS} data-test="analysis-tab-charts"><div className="flex items-center gap-2"><PresentationChartLineIcon className="h-5 w-5" /> Charts</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.FINANCIALS} data-test="analysis-tab-financials"><div className="flex items-center gap-2"><ClipboardDocumentListIcon className="h-5 w-5" /> Financials</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.SNAPSHOTS} data-test="analysis-tab-snapshots"><div className="flex items-center gap-2"><ClockIcon className="h-5 w-5" /> Snapshots</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.METHODOLOGY} data-test="analysis-tab-methodology"><div className="flex items-center gap-2"><SparklesIcon className="h-5 w-5" /> Methodology</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.TECHNICALS} data-test="analysis-tab-technicals"><div className="flex items-center gap-2"><ScaleIcon className="h-5 w-5" /> Technicals</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.BEAR_CASE} data-test="analysis-tab-bear-case"><div className="flex items-center gap-2"><ShieldExclamationIcon className="h-5 w-5" /> Bear Case</div></Tabs.Tab>
@@ -180,7 +183,7 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
             <Tabs.Panels>
                 <Tabs.Panel id={TABS.ANALYSIS}>
                     {isLoading && !analysisResult ? (
-                         <FinancialAdvisorLoader stockSymbol={currentSymbol} analysisPhase={analysisPhase} executionLog={executionLog} />
+                         <AgenticNexusLoader stockSymbol={currentSymbol} analysisPhase={analysisPhase} executionLog={executionLog} />
                     ) : analysisResult ? (
                         <>
                             <ResultDisplay
@@ -230,10 +233,13 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                     )}
                 </Tabs.Panel>
                  <Tabs.Panel id={TABS.CHARTS}>
-                    <ChartsTab rawFinancials={rawFinancials} />
+                    <ChartsTab rawFinancials={rawFinancials} technicalAnalysis={technicalAnalysis} />
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.FINANCIALS}>
                     <FinancialsTab rawFinancials={rawFinancials} stockSymbol={currentSymbol} />
+                </Tabs.Panel>
+                <Tabs.Panel id={TABS.SNAPSHOTS}>
+                    <SnapshotsTab snapshots={snapshots} currencySymbol={currencySymbol} />
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.METHODOLOGY}>
                     <PlanAndSteps 
@@ -242,6 +248,7 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                         steps={executionLog}
                         onRetry={onRetryStep}
                         consolidatedSources={consolidatedSources}
+                        analysisResult={analysisResult}
                     />
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.TECHNICALS}>

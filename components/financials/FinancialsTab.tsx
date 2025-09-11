@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { RawFinancials, FinancialStatement } from '../../types';
+import { Sparkline } from '../charts/Sparkline';
+import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, XMarkIcon } from '../IconComponents';
 
 interface FinancialsTabProps {
   rawFinancials: RawFinancials | null;
@@ -14,8 +16,82 @@ const formatValue = (value: number | null): string => {
     return value.toFixed(2);
 };
 
-const FinancialStatementTable: React.FC<{ statement: FinancialStatement | undefined, title: string }> = ({ statement, title }) => {
-    if (!statement || !statement.periods || !statement.rows) {
+const FinancialCell: React.FC<{
+    value: number | null;
+    colIndex: number;
+    rowData: (number | null)[];
+    viewType: 'annual' | 'quarterly';
+}> = ({ value, colIndex, rowData, viewType }) => {
+    const [isHovering, setIsHovering] = useState(false);
+    const [showGrowth, setShowGrowth] = useState(false);
+    
+    const growth = useMemo(() => {
+        const periodsAgo = viewType === 'annual' ? 1 : 4;
+        if (colIndex < periodsAgo) return null;
+
+        const currentValue = value;
+        const previousValue = rowData[colIndex - periodsAgo];
+
+        if (currentValue === null || previousValue === null || previousValue === 0) return null;
+
+        const growthPct = ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
+        return {
+            value: growthPct,
+            period: viewType === 'annual' ? 'YoY' : 'QoQ',
+        };
+    }, [value, colIndex, rowData, viewType]);
+
+    const handleCellClick = (e: React.MouseEvent) => {
+        if (growth) {
+            e.stopPropagation();
+            setShowGrowth(true);
+        }
+    };
+    
+    const popoverClasses = "absolute z-20 bottom-full mb-2 left-1/2 -translate-x-1/2 p-3 bg-white text-slate-700 text-xs font-medium rounded-lg shadow-xl border border-gray-200/80 animate-fade-in-fast dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 w-48";
+    
+    return (
+        <td
+            className="px-4 py-2 text-slate-600 dark:text-slate-300 text-right font-mono relative"
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => { setIsHovering(false); setShowGrowth(false); }}
+        >
+            <button
+                onClick={handleCellClick}
+                className={`w-full h-full text-right p-1 -m-1 ${growth ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 rounded' : 'cursor-default'}`}
+                disabled={!growth}
+            >
+                {formatValue(value)}
+            </button>
+            
+            {isHovering && !showGrowth && (
+                <div className={popoverClasses} style={{ pointerEvents: 'none' }}>
+                    <p className="font-bold mb-1 text-center">8-Period Trend</p>
+                    <Sparkline data={rowData.slice(-8)} width={150} height={40} color="#3b82f6" />
+                </div>
+            )}
+            
+            {showGrowth && growth && (
+                <div className={popoverClasses}>
+                    <div className="flex justify-between items-center mb-1">
+                        <p className="font-bold">{growth.period} Growth</p>
+                        <button onClick={(e) => { e.stopPropagation(); setShowGrowth(false); }} className="p-1 -m-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+                            <XMarkIcon className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div className={`flex items-center justify-center gap-2 text-lg font-bold ${growth.value >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {growth.value >= 0 ? <ArrowTrendingUpIcon className="h-5 w-5"/> : <ArrowTrendingDownIcon className="h-5 w-5"/>}
+                        <span>{growth.value.toFixed(2)}%</span>
+                    </div>
+                </div>
+            )}
+        </td>
+    );
+};
+
+
+const FinancialStatementTable: React.FC<{ statement: FinancialStatement | undefined, title: string, view: 'annual' | 'quarterly' }> = ({ statement, title, view }) => {
+    if (!statement || !statement.periods || !statement.rows || statement.rows.length === 0) {
         return (
             <div className="p-4 bg-gray-50 dark:bg-slate-800 rounded-lg border dark:border-slate-700">
                 <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-2">{title}</h4>
@@ -41,7 +117,13 @@ const FinancialStatementTable: React.FC<{ statement: FinancialStatement | undefi
                         <tr key={rowIndex} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
                             <td className="px-4 py-2 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">{row.label}</td>
                             {row.values.map((value, valueIndex) => (
-                                <td key={valueIndex} className="px-4 py-2 text-slate-600 dark:text-slate-300 text-right font-mono">{formatValue(value)}</td>
+                                <FinancialCell
+                                    key={valueIndex}
+                                    value={value}
+                                    colIndex={valueIndex}
+                                    rowData={row.values}
+                                    viewType={view}
+                                />
                             ))}
                         </tr>
                     ))}
@@ -62,8 +144,17 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({ rawFinancials, sto
         );
     }
     
-    const hasQuarterlyData = !!rawFinancials.quarterly_income_statement;
-    const hasAnnualData = !!rawFinancials.annual_income_statement;
+    const hasQuarterlyData = !!rawFinancials.quarterly_income_statement && rawFinancials.quarterly_income_statement.rows.length > 0;
+    const hasAnnualData = !!rawFinancials.annual_income_statement && rawFinancials.annual_income_statement.rows.length > 0;
+    const hasAnyData = hasAnnualData || hasQuarterlyData;
+
+    if (!hasAnyData) {
+        return (
+             <div className="flex items-center justify-center p-8 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 h-full text-slate-500 text-center">
+                Historical financial statements could not be retrieved for this stock.
+            </div>
+        );
+    }
 
     const incomeStatement = view === 'annual' ? rawFinancials.annual_income_statement : rawFinancials.quarterly_income_statement;
     const balanceSheet = view === 'annual' ? rawFinancials.annual_balance_sheet : rawFinancials.quarterly_balance_sheet;
@@ -74,7 +165,7 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({ rawFinancials, sto
             <div className="flex justify-between items-center">
                 <div>
                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Financial Statements</h3>
-                     <p className="text-sm text-slate-500 dark:text-slate-400">Historical performance data for {stockSymbol}.</p>
+                     <p className="text-sm text-slate-500 dark:text-slate-400">Hover for trends, click for growth analysis. All values in {rawFinancials.annual_income_statement?.rows.find(r => r.label.includes("Cr")) ? "Crores" : "units"}.</p>
                 </div>
                 <div className="flex items-center space-x-1 bg-slate-200/70 p-1 rounded-lg dark:bg-slate-700">
                     <button 
@@ -94,9 +185,9 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({ rawFinancials, sto
                 </div>
             </div>
 
-            <FinancialStatementTable statement={incomeStatement} title="Income Statement" />
-            <FinancialStatementTable statement={balanceSheet} title="Balance Sheet" />
-            <FinancialStatementTable statement={cashFlow} title="Cash Flow Statement" />
+            <FinancialStatementTable statement={incomeStatement} title="Income Statement" view={view} />
+            <FinancialStatementTable statement={balanceSheet} title="Balance Sheet" view={view} />
+            <FinancialStatementTable statement={cashFlow} title="Cash Flow Statement" view={view} />
 
         </div>
     );

@@ -14,10 +14,10 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoogleSearch: boolean = false, isJsonOutput: boolean = true): Promise<T> {
     const maxRetries = 3;
     let attempt = 0;
+    const agentName = systemInstruction.substring(6, systemInstruction.indexOf('.')).trim();
 
     while (attempt <= maxRetries) {
         try {
-            const agentName = systemInstruction.substring(6, systemInstruction.indexOf('.')).trim();
             console.log(`[Gemini Request] Agent: "${agentName}" | Prompt Chars: ~${systemInstruction.length + userPrompt.length} | Attempt: ${attempt + 1}`);
 
             const config: any = {
@@ -25,8 +25,6 @@ async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoo
                 temperature: 0.2,
             };
 
-            // The API does not support using tools (like googleSearch) and setting a responseMimeType simultaneously.
-            // This logic ensures only one is set at a time.
             if (useGoogleSearch) {
                 config.tools = [{ googleSearch: {} }];
             } else if (isJsonOutput) {
@@ -47,19 +45,39 @@ async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoo
             }
 
             let responseText = rawText;
-            const markdownMatch = rawText.match(/```json\s*(\{[\s\S]*\})\s*```/);
+            const markdownMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/);
             if (markdownMatch && markdownMatch[1]) {
                 responseText = markdownMatch[1];
             } else {
-                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-                if (!jsonMatch) {
+                const firstBrace = rawText.indexOf('{');
+                const lastBrace = rawText.lastIndexOf('}');
+                if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
                     console.error("AI response did not contain a valid JSON object. Raw response:", rawText);
                     throw new Error("Failed to parse AI response. The response did not contain a valid JSON object.");
                 }
-                responseText = jsonMatch[0];
+                responseText = rawText.substring(firstBrace, lastBrace + 1);
             }
             
-            const rawData = JSON.parse(responseText.replace(/\\n/g, "\\n"));
+            let rawData;
+            try {
+                rawData = JSON.parse(responseText.replace(/\\n/g, "\\n"));
+            } catch (error) {
+                console.warn(`[Gemini JSON Fix] Initial JSON parsing failed for agent "${agentName}". Attempting to fix...`);
+                try {
+                    let fixedJson = responseText.replace(/,\s*(?=[}\]])/g, '');
+                    fixedJson = fixedJson.replace(/([{,]\s*)['"]?([a-zA-Z0-9_]+)['"]?\s*:/g, '$1"$2": ');
+                    
+                    rawData = JSON.parse(fixedJson.replace(/\\n/g, "\\n"));
+                    console.log(`[Gemini JSON Fix] Successfully parsed after fixing for agent "${agentName}".`);
+                } catch (finalError) {
+                    console.error(`[Gemini JSON Fix] Failed to parse AI response for agent "${agentName}" even after attempting to fix.`, {
+                        originalError: error,
+                        finalError: finalError,
+                        originalString: responseText,
+                    });
+                    throw new Error(`Failed to parse AI response for agent "${agentName}". The response was not valid JSON.`);
+                }
+            }
 
             if (useGoogleSearch) {
                 const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
@@ -81,7 +99,6 @@ async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoo
             return rawData as T;
 
         } catch (error) {
-            const agentName = systemInstruction.substring(6, systemInstruction.indexOf('.')).trim();
             const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase();
             const isRetriable = errorMessage.includes("503") ||
                                 errorMessage.includes("500") ||
@@ -93,14 +110,12 @@ async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoo
 
             if (isRetriable && attempt < maxRetries) {
                 attempt++;
-                // Exponential backoff with jitter
                 const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
                 console.warn(`[Gemini Retry] Agent "${agentName}" failed with a retriable error. Retrying in ${Math.round(delay/1000)}s (attempt ${attempt} of ${maxRetries})...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
-                continue; // Retry the loop
+                continue;
             }
 
-            // Non-retriable error or max retries reached, throw a user-friendly error
             console.error(`Error running agent "${agentName}" after ${attempt + 1} attempt(s):`, error);
             
             if (errorMessage.includes("api key not valid") || errorMessage.includes("api key is missing")) {
@@ -112,14 +127,13 @@ async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoo
             if (errorMessage.includes("is unsupported")) {
                 throw new Error("An internal configuration error occurred with the AI service.");
             }
-            if (isRetriable) { // Specific message for final retry failure
+            if (isRetriable) {
                 throw new Error("The model is currently overloaded. The request failed after multiple retries. Please try again later.");
             }
-            throw error; // Re-throw other errors
+            throw error;
         }
     }
-    // This part should be unreachable, but TypeScript requires a return path or it will complain.
-    throw new Error(`Agent failed for an unknown reason after ${maxRetries} retries.`);
+    throw new Error(`Agent "${agentName}" failed for an unknown reason after ${maxRetries + 1} retries.`);
 }
 
 export async function getAnalysisPlan(stockSymbol: string, marketName: string, agentList: string): Promise<string> {
@@ -142,15 +156,13 @@ export async function getEsgAnalysis(stockSymbol: string, marketName: string, ov
         const systemInstruction = ESG_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
         const result = await runAgent<EsgAnalysis>(systemInstruction, userPrompt, true);
         
-        // More robust ESG score parsing to handle conversational AI responses.
         const receivedScoreStr = result.score ? String(result.score) : 'N/A';
-        const scoreRegex = /\b(AAA|AA|A|BBB|BB|B|CCC)\b/i; // Find a valid score as a whole word
+        const scoreRegex = /\b(AAA|AA|A|BBB|BB|B|CCC)\b/i;
         const match = receivedScoreStr.match(scoreRegex);
 
         if (match && match[0]) {
             result.score = match[0].toUpperCase() as EsgAnalysis['score'];
         } else {
-            // If no valid score is found in the string, default to N/A
             if (result.score !== 'N/A') {
                  console.warn(`Could not parse a valid ESG score from '${result.score}' for ${stockSymbol}. Defaulting to N/A.`);
                  result.na_justifications = {
@@ -191,7 +203,6 @@ export async function getMarketIntelligenceAnalysis(stockSymbol: string, marketN
     try {
         const systemInstruction = MARKET_INTELLIGENCE_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
         const result = await runAgent<MarketIntelligenceAnalysis>(systemInstruction, userPrompt, true);
-        // Ensure arrays exist even if the model omits them
         if (!result.regulatory_and_geopolitical_risks) result.regulatory_and_geopolitical_risks = [];
         if (!result.key_articles) result.key_articles = [];
         if (!result.key_positive_points) result.key_positive_points = [];
@@ -316,10 +327,8 @@ export async function getChiefAnalystCritique(
     }
 }
 
-// Helper function to sanitize recommendation strings
 const sanitizeRecommendation = (rec: string | undefined): StockAnalysis['recommendation'] => {
     if (!rec) return 'N/A';
-    // Handles cases like "Hold (with caution)" -> "Hold"
     const sanitized = rec.split('(')[0].trim();
     const validRecs: StockAnalysis['recommendation'][] = ['Strong Buy', 'Buy', 'Hold', 'Sell', 'Strong Sell', 'N/A'];
     if (validRecs.includes(sanitized as any)) {
@@ -328,7 +337,6 @@ const sanitizeRecommendation = (rec: string | undefined): StockAnalysis['recomme
     return 'N/A';
 };
 
-// Helper function to sanitize sentiment strings
 const sanitizeSentiment = (sentiment: string | undefined): StockAnalysis['overall_sentiment'] => {
     if (!sentiment) return 'N/A';
     const sanitized = sentiment.split('(')[0].trim();
@@ -339,7 +347,6 @@ const sanitizeSentiment = (sentiment: string | undefined): StockAnalysis['overal
     return 'N/A';
 }
 
-// Helper function to sanitize numeric values from the AI
 const sanitizeNumber = (value: any): number | null => {
   if (value === null || value === undefined) {
     return null;
@@ -383,11 +390,20 @@ export async function getStockAnalysis(
 
     const rawData = await runAgent<any>(systemInstruction, userPrompt, false);
     
+    const currentPrice = sanitizeNumber(rawData.current_price ?? rawFinancials?.current_price);
+    let stopLoss = sanitizeNumber(rawData.stop_loss);
+    let naJustifications = rawData.na_justifications || {};
+
+    if (currentPrice !== null && stopLoss !== null && stopLoss >= currentPrice) {
+        naJustifications.stop_loss = `Invalid stop_loss (${stopLoss}) was generated, which is higher than or equal to the current price (${currentPrice}). It has been removed for safety.`;
+        stopLoss = null;
+    }
+    
     const normalizedData: StockAnalysis = {
         ...rawData,
         stock_symbol: rawData.stock_symbol || stockSymbol,
         share_name: rawData.share_name || rawData.company_name,
-        current_price: sanitizeNumber(rawData.current_price ?? rawFinancials?.current_price),
+        current_price: currentPrice,
         price_change: sanitizeNumber(rawData.price_change),
         price_change_percentage: rawData.price_change_percentage,
         overall_sentiment: sanitizeSentiment(rawData.overall_sentiment),
@@ -397,10 +413,16 @@ export async function getStockAnalysis(
             long_term: sanitizeRecommendation(rawData.investment_horizon?.long_term),
         },
         target_price: {
-            short_term: sanitizeNumber(rawData.target_price?.short_term),
-            long_term: sanitizeNumber(rawData.target_price?.long_term),
+            short_term: {
+                low: sanitizeNumber(rawData.target_price?.short_term?.low),
+                high: sanitizeNumber(rawData.target_price?.short_term?.high)
+            },
+            long_term: {
+                low: sanitizeNumber(rawData.target_price?.long_term?.low),
+                high: sanitizeNumber(rawData.target_price?.long_term?.high)
+            },
         },
-        stop_loss: sanitizeNumber(rawData.stop_loss),
+        stop_loss: stopLoss,
         risk_analysis: rawData.risk_analysis ? {
             ...rawData.risk_analysis,
             risk_score: sanitizeNumber(rawData.risk_analysis.risk_score) ?? 50,
@@ -416,7 +438,7 @@ export async function getStockAnalysis(
             technical_analysis_summary: rawData.contextual_inputs?.technical_analysis_summary || context.technical,
             contrarian_summary: rawData.contextual_inputs?.contrarian_summary || context.contrarian,
         },
-        na_justifications: rawData.na_justifications || {}
+        na_justifications: naJustifications
     };
 
     if (!normalizedData.stock_symbol || !normalizedData.justification) {

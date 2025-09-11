@@ -53,6 +53,13 @@ const formatPrice = (price: number | null, currencySymbol: string) => {
     return `${symbolToShow}${price.toFixed(2)}`;
 }
 
+const formatPriceRange = (low: number | null, high: number | null, currency: string) => {
+    if (low === null || high === null) return 'N/A';
+    // Use an en dash for number ranges
+    return `${formatPrice(low, currency)} – ${formatPrice(high, currency)}`;
+};
+
+
 const formatDate = (dateString?: string) => {
     if (!dateString) return null;
     try {
@@ -231,6 +238,28 @@ const FinancialRatioChart: React.FC<{
     );
 };
 
+const ThesisBreakdown: React.FC<{ breakdown: StockAnalysis['justification']['thesis_breakdown'] }> = ({ breakdown }) => {
+    if (!breakdown) return null;
+    return (
+        <CollapsibleSection title="Thesis Breakdown" icon={<SparklesIcon />}>
+            <div className="space-y-4">
+                <div>
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-1">Quantitative View</h4>
+                    <p className="prose prose-sm max-w-none text-slate-600 dark:text-slate-300">{breakdown.quantitative_view}</p>
+                </div>
+                 <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-1">Qualitative View</h4>
+                    <p className="prose prose-sm max-w-none text-slate-600 dark:text-slate-300">{breakdown.qualitative_view}</p>
+                </div>
+                 <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-1">Relative View</h4>
+                    <p className="prose prose-sm max-w-none text-slate-600 dark:text-slate-300">{breakdown.relative_view}</p>
+                </div>
+            </div>
+        </CollapsibleSection>
+    )
+}
+
 
 export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, currencySymbol, calculatedMetrics }) => {
   const formattedDate = formatDate(result.last_updated);
@@ -287,13 +316,17 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                     currencySymbol={currencySymbol}
                 />
                 
-                {result.chiefAnalystCritique && (
-                    <div className="my-6">
+                <div className="my-6 space-y-6">
+                    {result.justification.thesis_breakdown && (
+                        <ThesisBreakdown breakdown={result.justification.thesis_breakdown} />
+                    )}
+
+                    {result.chiefAnalystCritique && (
                         <CollapsibleSection title="Chief Analyst's Debate Log" icon={<SparklesIcon />}>
                             <DebateLog critique={result.chiefAnalystCritique} />
                         </CollapsibleSection>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 <div className="my-6">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 text-center">Key Insights</h3>
@@ -307,17 +340,17 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
                         />
                         <KeyInsight 
                             title="Short-Term Target"
-                            value={<MetricWithProof metric={result.target_price.short_term} currencySymbol={currencySymbol} />}
+                            value={formatPriceRange(result.target_price.short_term.low, result.target_price.short_term.high, currencySymbol)}
                             isProminent 
                             naReason={result.na_justifications?.['target_price.short_term']}
-                            tooltipText="The price the AI expects the stock to reach in the short term (typically under 1 year)."
+                            tooltipText="The price range the AI expects the stock to reach in the short term (typically under 1 year)."
                         />
                         <KeyInsight 
                             title="Long-Term Target" 
-                            value={<MetricWithProof metric={result.target_price.long_term} currencySymbol={currencySymbol} />}
+                             value={formatPriceRange(result.target_price.long_term.low, result.target_price.long_term.high, currencySymbol)}
                             isProminent 
                             naReason={result.na_justifications?.['target_price.long_term']}
-                            tooltipText="The price the AI expects the stock to reach in the long term (typically 1-3 years)."
+                            tooltipText="The price range the AI expects the stock to reach in the long term (typically 1-3 years)."
                         />
                         <KeyInsight 
                             title="Stop Loss" 
