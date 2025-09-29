@@ -1,22 +1,23 @@
 import React from 'react';
-import { ChiefAnalystCritique } from '../../types';
+import { ChiefAnalystCritique } from '../types';
 import { UserCircleIcon, SparklesIcon } from './IconComponents';
 import { AgentKey } from '../types';
+import { LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, ShieldExclamationIcon } from './IconComponents';
+
 
 interface DebateLogProps {
   critique: ChiefAnalystCritique & { refined_answer?: string };
 }
 
-// FIX: Updated to use the new `market_intel` agent key instead of deprecated `news` and `sentiment`.
 const agentIconMap: { [key in AgentKey | 'default']?: React.ReactNode } = {
-    esg: <SparklesIcon className="h-5 w-5 text-green-500" />,
-    macro: <SparklesIcon className="h-5 w-5 text-sky-500" />,
-    market_intel: <SparklesIcon className="h-5 w-5 text-blue-500" />,
-    leadership: <SparklesIcon className="h-5 w-5 text-purple-500" />,
-    competitive: <SparklesIcon className="h-5 w-5 text-amber-500" />,
-    sector: <SparklesIcon className="h-5 w-5 text-indigo-500" />,
-    calendar: <SparklesIcon className="h-5 w-5 text-rose-500" />,
-    contrarian: <SparklesIcon className="h-5 w-5 text-red-500" />,
+    esg: <LeafIcon className="h-5 w-5 text-green-500" />,
+    macro: <GlobeAltIcon className="h-5 w-5 text-sky-500" />,
+    market_intel: <NewspaperIcon className="h-5 w-5 text-blue-500" />,
+    leadership: <UserGroupIcon className="h-5 w-5 text-purple-500" />,
+    competitive: <TrophyIcon className="h-5 w-5 text-amber-500" />,
+    sector: <BuildingOfficeIcon className="h-5 w-5 text-indigo-500" />,
+    calendar: <CalendarDaysIcon className="h-5 w-5 text-rose-500" />,
+    contrarian: <ShieldExclamationIcon className="h-5 w-5 text-red-500" />,
     default: <SparklesIcon className="h-5 w-5 text-slate-500" />,
 };
 

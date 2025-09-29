@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { RawFinancials, FinancialStatement } from '../../types';
 import { Sparkline } from '../charts/Sparkline';
 import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, XMarkIcon } from '../IconComponents';
@@ -10,10 +10,12 @@ interface FinancialsTabProps {
 
 const formatValue = (value: number | null): string => {
     if (value === null || value === undefined) return '-';
-    if (Math.abs(value) > 1e9) return `${(value / 1e9).toFixed(2)}B`;
-    if (Math.abs(value) > 1e6) return `${(value / 1e6).toFixed(2)}M`;
-    if (Math.abs(value) > 1e3) return `${(value / 1e3).toFixed(2)}K`;
-    return value.toFixed(2);
+    // Format to 2 decimal places and add commas for thousands
+    const formatted = value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return formatted;
 };
 
 const FinancialCell: React.FC<{
@@ -160,12 +162,20 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({ rawFinancials, sto
     const balanceSheet = view === 'annual' ? rawFinancials.annual_balance_sheet : rawFinancials.quarterly_balance_sheet;
     const cashFlow = view === 'annual' ? rawFinancials.annual_cash_flow : rawFinancials.quarterly_cash_flow;
 
+    const unitNote = useMemo(() => {
+        const incomeRows = rawFinancials.annual_income_statement?.rows || rawFinancials.quarterly_income_statement?.rows || [];
+        for (const row of incomeRows) {
+            if (row.label.toLowerCase().includes('cr')) return "All values in Crores (₹)";
+        }
+        return "All values in local currency units.";
+    }, [rawFinancials]);
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Financial Statements</h3>
-                     <p className="text-sm text-slate-500 dark:text-slate-400">Hover for trends, click for growth analysis. All values in {rawFinancials.annual_income_statement?.rows.find(r => r.label.includes("Cr")) ? "Crores" : "units"}.</p>
+                     <p className="text-sm text-slate-500 dark:text-slate-400">Hover over values for trends, click for growth analysis. {unitNote}</p>
                 </div>
                 <div className="flex items-center space-x-1 bg-slate-200/70 p-1 rounded-lg dark:bg-slate-700">
                     <button 

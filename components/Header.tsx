@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FinancialAdvisorIcon, SearchIcon, CameraIcon } from './IconComponents';
+import { FinancialAdvisorIcon, SearchIcon, CameraIcon, ArrowPathIcon } from './IconComponents';
 import { MarketSwitcher, CurrencySwitcher } from './MarketSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { StockAnalysis } from '../types';
 import { ExportButton } from './ExportButton';
 
-// A simple search/autocomplete component built directly into the header
 const SearchBar: React.FC<{
     allSymbols: string[];
     onSelect: (symbol: string) => void;
@@ -100,8 +99,6 @@ const SearchBar: React.FC<{
     );
 };
 
-
-// Fix: Update HeaderProps to accept all props passed from App.tsx.
 export interface HeaderProps {
   selectedMarketId: string;
   onMarketChange: (marketId: string) => void;
@@ -116,14 +113,16 @@ export interface HeaderProps {
   analysisResult: StockAnalysis | null;
   onExport: () => void;
   onSaveSnapshot: () => void;
+  isCachedView: boolean;
+  onRefresh: () => void;
 }
 
 
-// Fix: Update the Header component to include the SearchBar and ExportButton.
 export const Header: React.FC<HeaderProps> = (props) => {
   const { 
     selectedMarketId, onMarketChange, selectedCurrency, onCurrencyChange, 
-    analysisResult, onExport, isAnalysisRunning, onSaveSnapshot
+    analysisResult, onExport, isAnalysisRunning, onSaveSnapshot,
+    isCachedView, onRefresh
   } = props;
   
   const [isExporting, setIsExporting] = useState(false);
@@ -163,6 +162,18 @@ export const Header: React.FC<HeaderProps> = (props) => {
         <div className="flex items-center gap-2 sm:gap-4">
             {analysisResult && (
                 <>
+                    {isCachedView && (
+                        <button
+                            onClick={onRefresh}
+                            disabled={isAnalysisRunning}
+                            className="flex items-center justify-center gap-2 h-9 px-4 bg-blue-100 hover:bg-blue-200 rounded-md text-blue-700 font-semibold transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed shrink-0 dark:bg-blue-900/50 dark:hover:bg-blue-900 dark:text-blue-300"
+                            title="Refresh analysis with the latest data."
+                            data-test="refresh-analysis-button"
+                        >
+                            <ArrowPathIcon className="h-5 w-5" />
+                            <span className="hidden md:inline">Refresh</span>
+                        </button>
+                    )}
                     <button
                         onClick={onSaveSnapshot}
                         disabled={isAnalysisRunning}

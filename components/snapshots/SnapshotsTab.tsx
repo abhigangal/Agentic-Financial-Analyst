@@ -23,7 +23,8 @@ export const SnapshotsTab: React.FC<SnapshotsTabProps> = ({ snapshots, currencyS
 
     const handleSelect = (id: string, position: 0 | 1) => {
         setSelectedIds(prev => {
-            const newSelection: [string | null, string | null] = [...prev];
+// FIX: Add type assertion to ensure the spread array is treated as a tuple.
+            const newSelection = [...prev] as [string | null, string | null];
             // If selecting the same ID in the other slot, clear the other slot
             if (position === 0 && id === newSelection[1]) newSelection[1] = null;
             if (position === 1 && id === newSelection[0]) newSelection[0] = null;

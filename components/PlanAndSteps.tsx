@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ExecutionStep, GroundingSource, StockAnalysis } from '../../types';
 import { CollapsibleSection } from './CollapsibleSection';
-import { CheckCircleIcon, ExclamationTriangleIcon, LinkIcon, PlayCircleIcon, SparklesIcon, SpinnerIcon, DocumentTextIcon, ArrowDownTrayIcon, InformationCircleIcon } from './IconComponents';
+import { CheckCircleIcon, ExclamationTriangleIcon, LinkIcon, PlayCircleIcon, SparklesIcon, SpinnerIcon, DocumentTextIcon, ArrowDownTrayIcon } from './IconComponents';
 import { generateMethodologyPdf } from '../../services/pdfService';
 
 interface PlanAndStepsProps {
@@ -52,10 +52,10 @@ const DisclosuresSection: React.FC<{ disclosures: NonNullable<StockAnalysis['dis
 export const PlanAndSteps: React.FC<PlanAndStepsProps> = ({ stockSymbol, plan, steps, onRetry, consolidatedSources, analysisResult }) => {
     const [isExporting, setIsExporting] = useState(false);
 
-    if (steps.length === 0) {
+    if (steps.length === 0 && !analysisResult) {
         return (
             <div className="text-center py-10">
-                <p className="text-slate-500">Analysis has not started yet.</p>
+                <p className="text-slate-500">Methodology and sources will appear here after an analysis is run.</p>
             </div>
         )
     }
@@ -147,84 +147,86 @@ export const PlanAndSteps: React.FC<PlanAndStepsProps> = ({ stockSymbol, plan, s
                 </div>
             )}
             
-            <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Execution Log</h3>
-                <div className="space-y-3">
-                    {steps.map(step => (
-                        <div key={step.id} className="border border-gray-200/80 rounded-lg bg-white/50 dark:border-slate-700/80 dark:bg-slate-800/50">
-                             <div className="p-4 flex justify-between items-center">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex-shrink-0">{getStatusIcon(step.status)}</div>
-                                    <div>
-                                        <p className="font-semibold text-slate-800 dark:text-slate-100">{step.stepName}</p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">Agent: {step.agentKey.toUpperCase()}</p>
+            {steps.length > 0 && (
+                <div>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Execution Log</h3>
+                    <div className="space-y-3">
+                        {steps.map(step => (
+                            <div key={step.id} className="border border-gray-200/80 rounded-lg bg-white/50 dark:border-slate-700/80 dark:bg-slate-800/50">
+                                <div className="p-4 flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-shrink-0">{getStatusIcon(step.status)}</div>
+                                        <div>
+                                            <p className="font-semibold text-slate-800 dark:text-slate-100">{step.stepName}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">Agent: {step.agentKey.toUpperCase()}</p>
+                                        </div>
                                     </div>
                                 </div>
-                             </div>
-                             {(step.input || step.output) && (
-                                 <div className="px-4 pb-4">
-                                     <CollapsibleSection
-                                        title="View Details"
-                                        icon={<DocumentTextIcon />}
-                                        uniqueKey={`step-details-${step.id}`}
-                                      >
-                                        <div className="space-y-4">
-                                            {step.input && (
-                                                <div>
-                                                    <h4 className="font-semibold text-sm text-slate-600 dark:text-slate-400 mb-2">Input Payload</h4>
-                                                    {renderPayload(step.input)}
-                                                </div>
-                                            )}
-                                            {step.output && (
-                                                <div>
-                                                    <h4 className="font-semibold text-sm text-slate-600 dark:text-slate-400 mb-2">Output Payload</h4>
-                                                    {renderPayload(step.output)}
-                                                </div>
-                                            )}
-                                        </div>
-                                     </CollapsibleSection>
-                                 </div>
-                             )}
-                             {step.status === 'paused' && step.remediation && (
-                                 <div className="px-4 pb-4">
-                                     <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-500/30">
-                                        <h4 className="font-bold text-yellow-800 dark:text-yellow-200">Analysis Paused</h4>
-                                        <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 mb-3">{step.remediation.message}</p>
-
-                                        <button 
-                                            onClick={onRetry}
-                                            className="px-3 py-1.5 bg-yellow-500 text-white font-semibold rounded-md hover:bg-yellow-600 text-sm"
+                                {(step.input || step.output) && (
+                                    <div className="px-4 pb-4">
+                                        <CollapsibleSection
+                                            title="View Details"
+                                            icon={<DocumentTextIcon />}
+                                            uniqueKey={`step-details-${step.id}`}
                                         >
-                                            {step.remediation.action} Analysis
-                                        </button>
-                                     </div>
-                                 </div>
-                             )}
-                              {step.sources && step.sources.length > 0 && (
-                                <div className="px-4 pb-4">
-                                <CollapsibleSection title="Sources" icon={<LinkIcon />} uniqueKey={`step-sources-${step.id}`}>
-                                    <ul className="list-disc pl-5 space-y-2 prose prose-sm text-slate-600 max-w-none dark:text-slate-300">
-                                        {step.sources.map((source, index) => (
-                                            <li key={index}>
-                                                <a 
-                                                    href={source.uri} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer" 
-                                                    className="text-blue-600 hover:text-blue-500 hover:underline break-all dark:text-blue-400 dark:hover:text-blue-300"
-                                                    title={source.uri}
-                                                >
-                                                    {source.title || source.uri}
-                                                </a>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </CollapsibleSection>
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                                            <div className="space-y-4">
+                                                {step.input && (
+                                                    <div>
+                                                        <h4 className="font-semibold text-sm text-slate-600 dark:text-slate-400 mb-2">Input Payload</h4>
+                                                        {renderPayload(step.input)}
+                                                    </div>
+                                                )}
+                                                {step.output && (
+                                                    <div>
+                                                        <h4 className="font-semibold text-sm text-slate-600 dark:text-slate-400 mb-2">Output Payload</h4>
+                                                        {renderPayload(step.output)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CollapsibleSection>
+                                    </div>
+                                )}
+                                {step.status === 'paused' && (
+                                    <div className="px-4 pb-4">
+                                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-500/30">
+                                            <h4 className="font-bold text-yellow-800 dark:text-yellow-200">Analysis Paused</h4>
+                                            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 mb-3">{step.output || "An agent failed to complete its task."}</p>
+
+                                            <button 
+                                                onClick={onRetry}
+                                                className="px-3 py-1.5 bg-yellow-500 text-white font-semibold rounded-md hover:bg-yellow-600 text-sm"
+                                            >
+                                                Retry Full Analysis
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {step.sources && step.sources.length > 0 && (
+                                    <div className="px-4 pb-4">
+                                    <CollapsibleSection title="Sources" icon={<LinkIcon />} uniqueKey={`step-sources-${step.id}`}>
+                                        <ul className="list-disc pl-5 space-y-2 prose prose-sm text-slate-600 max-w-none dark:text-slate-300">
+                                            {step.sources.map((source, index) => (
+                                                <li key={index}>
+                                                    <a 
+                                                        href={source.uri} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="text-blue-600 hover:text-blue-500 hover:underline break-all dark:text-blue-400 dark:hover:text-blue-300"
+                                                        title={source.uri}
+                                                    >
+                                                        {source.title || source.uri}
+                                                    </a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </CollapsibleSection>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

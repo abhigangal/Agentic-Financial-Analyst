@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Snapshot, StockAnalysis, RiskAnalysis, ExecutiveProfile } from '../../types';
+import { Snapshot } from '../../types';
 import { ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '../IconComponents';
 
 interface DiffViewProps {
@@ -65,7 +65,7 @@ const generateDiff = (objA: any, objB: any, path: string = ''): Diff[] => {
 
 const formatValue = (value: any, path: string, currency: string): string => {
     if (value === null || value === undefined) return 'N/A';
-    if (path.includes('price') || path.includes('stop_loss')) {
+    if (path.includes('price') || path.includes('stop_loss') || (path.includes('target_price') && (path.endsWith('low') || path.endsWith('high')))) {
         return `${currency}${Number(value).toFixed(2)}`;
     }
     if (path.includes('percentage')) return `${value}`;
@@ -131,7 +131,7 @@ const DiffItem: React.FC<{ diff: Diff, currency: string }> = ({ diff, currency }
                     {changeIndicator && (
                         <span className={`flex items-center gap-1 font-bold text-sm ${changeColor}`}>
                             {changeIndicator}
-                            ({change > 0 ? '+' : ''}{change.toFixed(2)})
+                            ({change && change > 0 ? '+' : ''}{change ? change.toFixed(2) : ''})
                         </span>
                     )}
                 </div>
@@ -147,7 +147,7 @@ export const DiffView: React.FC<DiffViewProps> = ({ snapshotA, snapshotB, curren
         const [older, newer] = [snapshotA, snapshotB].sort((a, b) => a.timestamp - b.timestamp);
 
         // Define paths to ignore in the diff
-        const ignoredPaths = ['last_updated', 'price_change', 'price_change_percentage'];
+        const ignoredPaths = ['last_updated', 'price_change', 'price_change_percentage', 'id', 'timestamp', 'contextual_inputs', 'sources', 'na_justifications', 'disclosures'];
         
         const rawDiffs = generateDiff(older.analysisResult, newer.analysisResult);
         

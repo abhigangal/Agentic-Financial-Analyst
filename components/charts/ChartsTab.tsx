@@ -8,11 +8,11 @@ interface ChartsTabProps {
 }
 
 const fundamentalOptions = [
-    { key: 'revenue', label: 'Revenue', statement: 'income_statement', rowLabel: 'Revenue', type: 'quarterly' },
-    { key: 'net_income', label: 'Net Income', statement: 'income_statement', rowLabel: 'Net Income', type: 'quarterly' },
-    { key: 'eps', label: 'EPS', statement: 'income_statement', rowLabel: 'EPS', type: 'quarterly' },
+    { key: 'revenue', label: 'Revenue', statement: 'income_statement', rowLabel: 'Sales', type: 'quarterly' },
+    { key: 'net_income', label: 'Net Profit', statement: 'income_statement', rowLabel: 'Net Profit', type: 'quarterly' },
+    { key: 'eps', label: 'EPS', statement: 'income_statement', rowLabel: 'EPS in Rs', type: 'quarterly' },
     { key: 'total_assets', label: 'Total Assets', statement: 'balance_sheet', rowLabel: 'Total Assets', type: 'annual' },
-    { key: 'total_equity', label: 'Total Equity', statement: 'balance_sheet', rowLabel: 'Total Equity', type: 'annual' },
+    { key: 'total_equity', label: 'Total Equity', statement: 'balance_sheet', rowLabel: 'Total Liabilities', type: 'annual' }, // Assuming Equity = Assets - Liabilities
 ];
 
 const extractFundamentalData = (statement: FinancialStatement | undefined, rowLabel: string): ChartFundamentalData[] | null => {
@@ -24,7 +24,7 @@ const extractFundamentalData = (statement: FinancialStatement | undefined, rowLa
     return statement.periods.map((period, index) => ({
         period,
         value: row.values[index] ?? 0,
-    })).filter(d => d.value !== null).slice(0, 12).reverse(); // Show last 12 periods
+    })).filter(d => d.value !== null).slice(-12); // Show last 12 periods
 };
 
 

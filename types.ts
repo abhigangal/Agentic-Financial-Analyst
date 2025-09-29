@@ -155,8 +155,7 @@ export interface CorporateCalendarAnalysis {
 export interface ChiefAnalystCritique {
   conflict_summary: string;
   remediation_question: string;
-  // FIX: Updated to match the modern `AgentKey` type, removing deprecated 'News'/'Sentiment' and adding 'Contrarian'.
-  target_agent: 'ESG' | 'Macro' | 'Leadership' | 'Competitive' | 'Sector' | 'Calendar' | 'Contrarian' | 'None' | 'Market_Intel';
+  target_agent: 'ESG' | 'MACRO' | 'LEADERSHIP' | 'COMPETITIVE' | 'SECTOR' | 'CALENDAR' | 'CONTRARIAN' | 'None' | 'MARKET_INTEL';
   reasoning: string;
 }
 
@@ -220,6 +219,11 @@ export interface RawFinancials {
     book_value_per_share: number | null;
     total_debt: number | null;
     total_equity: number | null;
+    // Direct ratios for sources that provide them instead of raw numbers
+    pe_ratio?: number | null;
+    pb_ratio?: number | null;
+    debt_to_equity_ratio?: number | null;
+    roe?: number | null;
     // New historical data
     historical_price_data?: HistoricalPriceDataPoint[];
     annual_income_statement?: FinancialStatement;

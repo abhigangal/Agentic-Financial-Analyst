@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-// FIX: Added ExecutionStep type for generateMethodologyPdf function.
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ChiefAnalystCritique, FinancialMetrics, TechnicalAnalysis, ContrarianAnalysis, ExecutiveProfile, ExecutionStep } from '../types';
 
 // --- Color and Font Definitions for a Professional Theme ---
@@ -35,7 +34,7 @@ const getFilenameTimestamp = (): string => {
 
 const formatPrice = (price: number | null, currencySymbol: string): string => {
     if (price === null || isNaN(price)) return 'N/A';
-    const symbolToShow = currencySymbol === '₹' ? '' : currencySymbol;
+    const symbolToShow = currencySymbol === '₹' ? 'Rs. ' : currencySymbol;
     return `${symbolToShow}${price.toFixed(2)}`;
 };
 
@@ -50,17 +49,6 @@ const getMetricValue = (metric: CalculatedMetric | number | string | null): stri
         return metric.value !== null ? metric.value.toFixed(2) : 'N/A';
     }
     return 'N/A';
-};
-
-const formatDate = (dateString?: string): string | null => {
-    if (!dateString) return null;
-    try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return null;
-        return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    } catch (e) {
-        return null;
-    }
 };
 
 class PdfBuilder {
@@ -89,7 +77,7 @@ class PdfBuilder {
   }
 
   private addHeadersAndFooters() {
-      const pageCount = this.doc.internal.pages.length;
+      const pageCount = (this.doc as any).internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
           this.doc.setPage(i);
           
@@ -162,6 +150,12 @@ class PdfBuilder {
     this.addPageIfNeeded(lines.length * 12 + 10);
     this.doc.text(lines, this.margin, this.y);
     this.y += lines.length * 12 + 10;
+  }
+
+  // FIX: This private method was missing, causing an error.
+  private addSpacer(height: number) {
+    this.addPageIfNeeded(height);
+    this.y += height;
   }
 
   addBulletedList(title: string, items: string[] | undefined, iconPrefix: 'positive' | 'negative' | 'neutral' = 'neutral') {
@@ -365,84 +359,54 @@ class PdfBuilder {
     this.y = (this.doc as any).lastAutoTable.finalY + 20;
   }
 
-// FIX: Added addTable method to PdfBuilder to support tabular data in methodology export.
-  addTable(headers: string[][], body: (string|number)[][]) {
-    this.addPageIfNeeded(20 * body.length + 40); // Rough estimate for height
-    autoTable(this.doc, {
-        head: headers,
-        body: body,
-        startY: this.y,
-        theme: 'grid',
-        styles: { fontSize: FONT_SIZES.SMALL, cellPadding: 4, valign: 'middle' },
-        headStyles: { fillColor: COLORS.HEADER_BG, textColor: COLORS.HEADER_TEXT, fontStyle: 'bold' },
-    });
-    this.y = (this.doc as any).lastAutoTable.finalY + 20;
+  // FIX: Add missing methods for methodology PDF generation
+  addKeyMultiValue(key: string, values: string[], color: string) {
+      this.addPageIfNeeded(30 + values.length * 12);
+      this.doc.setFontSize(FONT_SIZES.BODY);
+      this.doc.setFont('helvetica', 'bold');
+      this.doc.setTextColor(COLORS.PRIMARY_TEXT);
+      this.doc.text(key, this.margin, this.y);
+      this.y += 15;
+      
+      this.doc.setFont('helvetica', 'normal');
+      values.forEach((value, index) => {
+          this.doc.setTextColor(index === 1 ? color : COLORS.SECONDARY_TEXT);
+          this.doc.text(value, this.margin + 10, this.y);
+          this.y += 12;
+      });
+      this.y += 5;
   }
 
-  addDebateLog(critique: ChiefAnalystCritique & { refined_answer?: string }) {
-    this.addPageIfNeeded(100);
-    this.addSubsectionTitle("Identified Conflict");
-    this.addBodyText(critique.conflict_summary);
-    this.addSubsectionTitle("Remediation Question Sent To Specialist");
-    this.addBodyText(`To the ${critique.target_agent} Agent: "${critique.remediation_question}"`);
-    this.addSpacer(20);
+  addCodeBlock(text: string) {
+      this.addPageIfNeeded(40); // Estimate
+      this.doc.setFillColor(COLORS.CODE_BG);
+      const lines = this.doc.splitTextToSize(text, this.contentWidth - 20);
+      const height = lines.length * 10 + 20;
+      this.doc.rect(this.margin, this.y, this.contentWidth, height, 'F');
+      
+      this.doc.setFont('courier', 'normal');
+      this.doc.setFontSize(FONT_SIZES.SMALL);
+      this.doc.setTextColor(COLORS.RED);
+      this.doc.text(lines, this.margin + 10, this.y + 15);
+      this.y += height + 10;
   }
 
-  addSpacer(height: number) {
-    this.addPageIfNeeded(height);
-    this.y += height;
+  addLink(text: string, url: string) {
+      this.addPageIfNeeded(20);
+      this.doc.setFontSize(FONT_SIZES.BODY);
+      this.doc.setTextColor(COLORS.ACCENT_BLUE);
+      this.doc.textWithLink(text, this.margin, this.y, { url });
+      this.y += 15;
   }
-
-  addNewPage() {
-    this.doc.addPage();
-    this.y = this.margin + 20;
-  }
-
+  
   save(filename: string) {
     this.addHeadersAndFooters();
     this.doc.save(filename);
   }
 }
 
-// FIX: Added generateMethodologyPdf function to allow exporting the methodology report.
-export const generateMethodologyPdf = async (
-  stockSymbol: string,
-  plan: string | null,
-  steps: ExecutionStep[],
-  consolidatedSources: GroundingSource[]
-) => {
-    const builder = new PdfBuilder(`Methodology Report (${stockSymbol})`);
-    builder.buildTitlePage('Methodology & Execution Log', `For Stock: ${stockSymbol}`);
-
-    if (plan) {
-        builder.addSectionTitle('Analysis Plan');
-        builder.addBodyText(plan);
-    }
-
-    if (steps.length > 0) {
-        builder.addSectionTitle('Execution Log');
-        builder.addTable(
-            [['Timestamp', 'Agent', 'Step', 'Status']],
-            steps.map(step => [
-                new Date(step.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                step.agentKey.toUpperCase(),
-                step.stepName,
-                step.status,
-            ])
-        );
-    }
-
-    if (consolidatedSources && consolidatedSources.length > 0) {
-        builder.addSectionTitle('Consolidated Sources');
-        const sourcesText = consolidatedSources.map(s => `• ${s.title || 'Untitled'}:\n  ${s.uri}`).join('\n\n');
-        builder.addBodyText(sourcesText);
-    }
-
-    const filename = `Methodology_${stockSymbol}_${getFilenameTimestamp()}.pdf`;
-    builder.save(filename);
-};
-
-export const generateAnalysisPdf = async (
+// FIX: Add missing exported function for the main analysis PDF.
+export async function generateAnalysisPdf(
   analysisResult: StockAnalysis,
   esgAnalysis: EsgAnalysis | null,
   macroAnalysis: MacroAnalysis | null,
@@ -454,124 +418,142 @@ export const generateAnalysisPdf = async (
   technicalAnalysis: TechnicalAnalysis | null,
   contrarianAnalysis: ContrarianAnalysis | null,
   currencySymbol: string
-) => {
-    const builder = new PdfBuilder(`Financial Analysis Report (${analysisResult.stock_symbol})`);
-    builder.buildTitlePage('Financial Analysis Report', analysisResult.share_name || analysisResult.stock_symbol);
+) {
+    const title = `Financial Analysis Report: ${analysisResult.share_name} (${analysisResult.stock_symbol})`;
+    const builder = new PdfBuilder(title);
+
+    builder.buildTitlePage(
+        `${analysisResult.share_name} (${analysisResult.stock_symbol})`,
+        'AI-Generated Financial Analysis Report'
+    );
     
-    // --- Page 1: Executive Summary ---
-    builder.addSectionTitle('Executive Summary & Recommendation');
+    builder.addSectionTitle('Executive Summary');
     builder.addPriceSummary(analysisResult, currencySymbol);
     builder.addKeyInsightsGrid(analysisResult, currencySymbol);
-    if (analysisResult.risk_analysis) {
-        builder.addRiskAnalysis(analysisResult.risk_analysis);
-    }
-    builder.addSpacer(10);
-    builder.addSubsectionTitle('Investment Thesis');
+    builder.addSubsectionTitle('Overall Recommendation');
     builder.addBodyText(analysisResult.justification.overall_recommendation);
-    builder.addSubsectionTitle('Nutshell Summary');
-    builder.addBodyText(analysisResult.justification.nutshell_summary);
-
-    builder.addNewPage();
-
-    // --- Page 2: Financial & Agent Deep Dives ---
-    builder.addSectionTitle('Financial Analysis');
-    builder.addSubsectionTitle('Profit & Loss Summary');
-    builder.addBodyText(analysisResult.justification.profit_and_loss_summary);
-    builder.addSubsectionTitle('Balance Sheet Summary');
-    builder.addBodyText(analysisResult.justification.balance_sheet_summary);
-    
-    builder.addSectionTitle('Detailed Specialist Agent Analysis');
-
-    if (technicalAnalysis) {
-        builder.addSubsectionTitle('Technical Analysis');
-        builder.addKeyValueGrid({
-            'Trend': technicalAnalysis.trend,
-            'Support': technicalAnalysis.support_level,
-            'Resistance': technicalAnalysis.resistance_level,
-        });
-        builder.addBodyText(technicalAnalysis.summary);
-    }
-
-    if (contrarianAnalysis) {
-        builder.addSubsectionTitle('Contrarian "Bear Case" Analysis');
-        builder.addBodyText(contrarianAnalysis.bear_case_summary);
-        builder.addBulletedList("Key Contrarian Points", contrarianAnalysis.key_contrarian_points, 'negative');
+    if (analysisResult.risk_analysis) {
+        builder.addSubsectionTitle('Risk Overview');
+        builder.addRiskAnalysis(analysisResult.risk_analysis);
     }
 
     if (competitiveAnalysis) {
-        builder.addSubsectionTitle('Competitive Analysis');
+        builder.addSectionTitle('Competitive Landscape');
         builder.addBodyText(competitiveAnalysis.competitive_summary);
         builder.addCompetitiveTable(competitiveAnalysis);
     }
-
-    if (marketIntelligenceAnalysis) {
-        builder.addSubsectionTitle('Market Intelligence Analysis');
-        builder.addKeyValueGrid({'Overall Sentiment': marketIntelligenceAnalysis.overall_sentiment});
-        builder.addBodyText(marketIntelligenceAnalysis.intelligence_summary);
-        builder.addBulletedList('Positive Points', marketIntelligenceAnalysis.key_positive_points, 'positive');
-        builder.addBulletedList('Negative Points', marketIntelligenceAnalysis.key_negative_points, 'negative');
+    
+    if (leadershipAnalysis) {
+        builder.addSectionTitle('Leadership & Governance');
+        builder.addBodyText(leadershipAnalysis.summary);
+        if (leadershipAnalysis.key_executives.length > 0) {
+             builder.addLeadershipTable(leadershipAnalysis.key_executives);
+        }
     }
     
-    builder.addNewPage();
-
-    if (leadershipAnalysis) {
-        builder.addSubsectionTitle('Leadership Analysis');
-        builder.addKeyValueGrid({'Overall Assessment': leadershipAnalysis.overall_assessment});
-        builder.addBodyText(leadershipAnalysis.summary);
-        builder.addLeadershipTable(leadershipAnalysis.key_executives);
+    if (marketIntelligenceAnalysis) {
+        builder.addSectionTitle('Market Intelligence');
+        builder.addBodyText(marketIntelligenceAnalysis.intelligence_summary);
+        builder.addBulletedList('Key Positive Points:', marketIntelligenceAnalysis.key_positive_points, 'positive');
+        builder.addBulletedList('Key Negative Points:', marketIntelligenceAnalysis.key_negative_points, 'negative');
     }
-
-    if (sectorAnalysis) {
-        builder.addSubsectionTitle('Sector Analysis');
-        builder.addKeyValueGrid({'Sector Outlook': sectorAnalysis.sector_outlook});
-        builder.addBodyText(sectorAnalysis.summary);
-        builder.addBulletedList('Key Drivers', sectorAnalysis.key_drivers, 'positive');
-        builder.addBulletedList('Key Risks', sectorAnalysis.key_risks, 'negative');
-    }
-
+    
     if (esgAnalysis) {
-        builder.addSubsectionTitle('ESG Analysis');
+        builder.addSectionTitle('ESG Profile');
         builder.addKeyValueGrid({
             'ESG Score': esgAnalysis.score,
-            'Momentum': esgAnalysis.esg_momentum,
+            'Momentum (24m)': esgAnalysis.esg_momentum,
             'Confidence': esgAnalysis.score_confidence || 'N/A',
         }, 3);
         builder.addBodyText(esgAnalysis.justification.overall_summary);
     }
     
     if (macroAnalysis) {
-        builder.addSubsectionTitle('Macroeconomic Analysis');
+        builder.addSectionTitle('Macroeconomic Context');
         builder.addKeyValueGrid({
             'GDP Growth': macroAnalysis.gdp_growth,
             'Inflation Rate': macroAnalysis.inflation_rate,
-            'Interest Rate': macroAnalysis.interest_rate
+            'Interest Rate': macroAnalysis.interest_rate,
         }, 3);
         builder.addBodyText(macroAnalysis.outlook_summary);
+        builder.addSubsectionTitle('Sector Impact');
+        builder.addBodyText(macroAnalysis.sector_impact);
     }
 
-    if (corporateCalendarAnalysis) {
-        builder.addSubsectionTitle('Corporate Calendar');
-        builder.addKeyValueGrid({
-            'Next Earnings': corporateCalendarAnalysis.next_earnings_date,
-            'Ex-Dividend Date': corporateCalendarAnalysis.dividend_ex_date,
-            'Analyst Day': corporateCalendarAnalysis.analyst_day_date
-        }, 3);
-        builder.addBodyText(corporateCalendarAnalysis.summary);
+    if (contrarianAnalysis) {
+        builder.addSectionTitle('Contrarian Analysis (Bear Case)');
+        builder.addBodyText(contrarianAnalysis.bear_case_summary);
+        builder.addBulletedList('Key Contrarian Points:', contrarianAnalysis.key_contrarian_points, 'negative');
     }
     
-    if (analysisResult.chiefAnalystCritique) {
-        builder.addSectionTitle("Chief Analyst's Debate Log");
-        builder.addDebateLog(analysisResult.chiefAnalystCritique);
+    if (technicalAnalysis) {
+        builder.addSectionTitle('Technical Analysis');
+        builder.addBodyText(technicalAnalysis.summary);
+        builder.addKeyValueGrid({
+            'Trend': technicalAnalysis.trend,
+            'Support Level': technicalAnalysis.support_level,
+            'Resistance Level': technicalAnalysis.resistance_level,
+        }, 3);
+        builder.addSubsectionTitle('Moving Averages');
+        builder.addBodyText(technicalAnalysis.moving_averages_summary);
+        builder.addSubsectionTitle('Indicators (RSI, MACD)');
+        builder.addBodyText(technicalAnalysis.indicators_summary);
     }
 
     if (analysisResult.disclosures) {
-        builder.addSectionTitle('Disclosures and Sources');
+        builder.addSectionTitle('Disclosures');
         builder.addSubsectionTitle('Disclaimer');
         builder.addBodyText(analysisResult.disclosures.disclaimer);
         builder.addSubsectionTitle('Limitations');
         builder.addBodyText(analysisResult.disclosures.limitations);
     }
 
-    const filename = `Analysis_${analysisResult.stock_symbol}_${getFilenameTimestamp()}.pdf`;
+    const filename = `AI_Analysis_${analysisResult.stock_symbol}_${getFilenameTimestamp()}.pdf`;
     builder.save(filename);
-};
+}
+
+// FIX: Add missing exported function for the methodology PDF.
+export async function generateMethodologyPdf(
+  stockSymbol: string,
+  plan: string | null,
+  steps: ExecutionStep[],
+  consolidatedSources: GroundingSource[]
+) {
+    const title = `Methodology Report: ${stockSymbol}`;
+    const builder = new PdfBuilder(title);
+
+    builder.buildTitlePage(
+        `AI Execution Methodology for ${stockSymbol}`,
+        'A transparent log of the analysis process.'
+    );
+
+    if (plan) {
+        builder.addSectionTitle('Analysis Plan');
+        builder.addBodyText(plan);
+    }
+    
+    if (steps.length > 0) {
+        builder.addSectionTitle('Execution Log');
+        steps.forEach(step => {
+            const statusColor = step.status === 'complete' ? COLORS.GREEN : step.status === 'error' ? COLORS.RED : COLORS.SECONDARY_TEXT;
+            builder.addKeyMultiValue(
+                step.stepName,
+                [`Agent: ${step.agentKey.toUpperCase()}`, `Status: ${step.status.toUpperCase()}`],
+                statusColor
+            );
+            if (step.output && step.status === 'error') {
+                 builder.addCodeBlock(`Error: ${step.output}`);
+            }
+        });
+    }
+
+    if (consolidatedSources.length > 0) {
+        builder.addSectionTitle('Consolidated Sources');
+        consolidatedSources.forEach(source => {
+            builder.addLink(source.title || source.uri, source.uri);
+        });
+    }
+
+    const filename = `AI_Methodology_${stockSymbol}_${getFilenameTimestamp()}.pdf`;
+    builder.save(filename);
+}

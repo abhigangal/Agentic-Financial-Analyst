@@ -26,19 +26,19 @@ const dataStreamConfig: { key: AgentKey, name: string, icon: React.FC<React.SVGP
     { key: 'contrarian', name: 'Bear Case', icon: ShieldExclamationIcon, color: '#ef4444' },
 ];
 
-const phaseMap: Record<AnalysisPhase, { index: number, title: string }> = {
+const phaseMap: Record<AnalysisPhase, { index: number; title: string; }> = {
     IDLE: { index: -1, title: 'Initializing' },
     PLANNING: { index: 0, title: 'Planning' },
     GATHERING: { index: 1, title: 'Gathering Intel' },
-    CALCULATING: { index: 1, title: 'Gathering Intel' },
-    VERIFYING: { index: 1, title: 'Gathering Intel' },
-    DRAFTING: { index: 2, title: 'Synthesizing' },
-    DEBATING: { index: 3, title: 'Debating' },
-    REFINING: { index: 3, title: 'Debating' },
-    FINALIZING: { index: 4, title: 'Finalizing' },
-    COMPLETE: { index: 5, title: 'Complete' },
-    ERROR: { index: 5, title: 'Error' },
-    PAUSED: { index: 5, title: 'Paused' },
+    CALCULATING: { index: 1, title: 'Calculating Metrics' },
+    VERIFYING: { index: 1, title: 'Verifying Financials' },
+    DRAFTING: { index: 2, title: 'Drafting Initial Report' },
+    DEBATING: { index: 3, title: 'Debating & Critiquing' },
+    REFINING: { index: 4, title: 'Refining Analysis' },
+    FINALIZING: { index: 5, title: 'Finalizing Report' },
+    COMPLETE: { index: 6, title: 'Complete' },
+    ERROR: { index: 6, title: 'Error' },
+    PAUSED: { index: 6, title: 'Paused' },
 };
 
 const LiveLog: React.FC<{ log: ExecutionStep[] }> = ({ log }) => {

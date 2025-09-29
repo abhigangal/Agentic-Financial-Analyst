@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ExecutionStep, CalculatedMetric, GroundingSource, MarketIntelligenceAnalysis, TechnicalAnalysis, ContrarianAnalysis, RawFinancials, Snapshot } from '../types';
-import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, ScaleIcon, ShieldExclamationIcon, PresentationChartLineIcon, ClipboardDocumentListIcon, ClockIcon } from './IconComponents';
+import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, ScaleIcon, ShieldExclamationIcon, PresentationChartLineIcon, ClipboardDocumentListIcon, ClockIcon, InformationCircleIcon, ArrowPathIcon } from './IconComponents';
 import { ResultDisplay } from './ResultDisplay';
 import { AgenticNexusLoader } from './AgenticNexusLoader';
 import { SidekickAgentCard } from './SidekickAgentCard';
@@ -15,7 +15,7 @@ import { ScenarioPlanner } from './scenario/ScenarioPlanner';
 import { CollapsibleSection } from './CollapsibleSection';
 import { Tabs } from './Tabs';
 import { AgentKey } from '../types';
-import { AnalysisPhase } from '../../App';
+import { AnalysisPhase, AnalysisCacheItem } from '../../App';
 import { PlanAndSteps } from './PlanAndSteps';
 import { ChartsTab } from './charts/ChartsTab';
 import { FinancialsTab } from './financials/FinancialsTab';
@@ -124,6 +124,9 @@ interface TabbedAnalysisProps {
   rawFinancials: RawFinancials | null;
   calculatedMetrics: Record<string, CalculatedMetric>;
   snapshots: Snapshot[];
+  isCachedView: boolean;
+  onRefresh: () => void;
+  analysisCache: Record<string, AnalysisCacheItem>;
 }
 
 const TABS = {
@@ -144,7 +147,7 @@ const TABS = {
 };
 
 export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
-  const { currentSymbol, analysisResult, currencySymbol, onRetry, analysisPhase, agentStatuses, enabledAgents, executionLog, analysisPlan, onRetryStep, rawFinancials, calculatedMetrics, technicalAnalysis, snapshots } = props;
+  const { currentSymbol, analysisResult, currencySymbol, onRetry, analysisPhase, agentStatuses, enabledAgents, executionLog, analysisPlan, onRetryStep, rawFinancials, calculatedMetrics, technicalAnalysis, snapshots, isCachedView, onRefresh, analysisCache } = props;
   
   const isLoading = analysisPhase !== 'IDLE' && analysisPhase !== 'COMPLETE' && analysisPhase !== 'ERROR' && analysisPhase !== 'PAUSED';
   const financialError = agentStatuses.financial.error;
@@ -160,9 +163,28 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
     }, [] as GroundingSource[]);
     return uniqueSources;
   }, [executionLog]);
+  
+  const cachedTimestamp = useMemo(() => {
+      if (!isCachedView || !analysisCache[currentSymbol]) return null;
+      return analysisCache[currentSymbol].timestamp;
+  }, [isCachedView, analysisCache, currentSymbol]);
 
   return (
     <div className="animate-fade-in mt-6">
+        {isCachedView && cachedTimestamp && (
+            <div className="mb-6 p-4 bg-blue-50/70 border border-blue-200 rounded-xl dark:bg-blue-900/20 dark:border-blue-500/30 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <InformationCircleIcon className="h-6 w-6 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                        Showing cached data from {new Date(cachedTimestamp).toLocaleTimeString()}.
+                    </p>
+                </div>
+                <button onClick={onRefresh} className="flex items-center gap-2 px-3 py-1.5 bg-white text-blue-600 font-semibold rounded-md shadow-sm hover:bg-blue-50 border border-blue-200 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-600">
+                    <ArrowPathIcon className="h-4 w-4" />
+                    Refresh
+                </button>
+            </div>
+        )}
         <Tabs.Group defaultTab={TABS.ANALYSIS}>
             <Tabs.List>
                 <Tabs.Tab id={TABS.ANALYSIS} data-test="analysis-tab-main"><div className="flex items-center gap-2"><FinancialAdvisorIcon className="h-5 w-5" /> Overall Analysis</div></Tabs.Tab>
@@ -217,7 +239,7 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                             </button>
                         </div>
                     ) : null}
-                     {anyError && analysisResult && (
+                     {anyError && analysisResult && !isCachedView && (
                         <div className="text-center p-4 border-t border-gray-200 dark:border-slate-700 mt-4">
                             <p className="text-orange-600 dark:text-orange-400 font-semibold mb-2">Incomplete Analysis</p>
                             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
@@ -252,7 +274,8 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                     />
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.TECHNICALS}>
-                    <SidekickAgentCard title="Technical Analysis" icon={<ScaleIcon className="h-5 w-5" />} isLoading={agentStatuses.data_and_technicals?.isLoading} error={agentStatuses.data_and_technicals?.error}>
+{/* FIX: Add nullish coalescing to handle potential undefined values from optional chaining, preventing a type error. */}
+                    <SidekickAgentCard title="Technical Analysis" icon={<ScaleIcon className="h-5 w-5" />} isLoading={agentStatuses.data_and_technicals?.isLoading ?? false} error={agentStatuses.data_and_technicals?.error ?? null}>
                         <TechnicalAgentCard result={props.technicalAnalysis} />
                     </SidekickAgentCard>
                 </Tabs.Panel>

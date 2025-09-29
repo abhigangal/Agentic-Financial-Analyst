@@ -12,6 +12,7 @@ interface MetricWithProofProps {
 const formatNumber = (num: number | null | string): string => {
     if (num === null || num === undefined) return 'N/A';
     if (typeof num === 'string') return num;
+    if (!isFinite(num)) return 'N/A';
     return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 

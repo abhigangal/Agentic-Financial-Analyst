@@ -1,6 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, TechnicalAnalysis, ContrarianAnalysis, DataAndTechnicalsAnalysis, AgentKey } from '../types';
-import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, MARKET_INTELLIGENCE_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, DATA_AND_TECHNICALS_AGENT_PROMPT, CONTRARIAN_AGENT_PROMPT } from '../constants';
+import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, MARKET_INTELLIGENCE_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, DATA_AND_TECHNICALS_AGENT_PROMPT, CONTRARIAN_AGENT_PROMPT, DATA_AND_TECHNICALS_FINVIZ_AGENT_PROMPT, DATA_AND_TECHNICALS_YAHOO_AGENT_PROMPT } from '../constants';
 
 if (!process.env.API_KEY) {
   // The error handling in the app will catch the error from the SDK
@@ -292,14 +292,29 @@ export async function getContrarianAnalysis(draftSummary: string, specialistCont
 export async function getDataAndTechnicalsAnalysis(screenerUrl: string, screenerName: string, marketName: string): Promise<DataAndTechnicalsAnalysis> {
     const userPrompt = `Please extract financial data and perform technical analysis for the company at URL: ${screenerUrl}`;
     try {
-        const systemInstruction = DATA_AND_TECHNICALS_AGENT_PROMPT
+        let systemInstruction: string;
+        switch (screenerName) {
+            case 'Finviz':
+                systemInstruction = DATA_AND_TECHNICALS_FINVIZ_AGENT_PROMPT;
+                break;
+            case 'Yahoo Finance':
+                 systemInstruction = DATA_AND_TECHNICALS_YAHOO_AGENT_PROMPT;
+                 break;
+            case 'Screener.in':
+            default:
+                systemInstruction = DATA_AND_TECHNICALS_AGENT_PROMPT;
+                break;
+        }
+        
+        systemInstruction = systemInstruction
             .replace(/\[Screener Name\]/g, screenerName)
             .replace(/\[Market Name\]/g, marketName);
+
         const result = await runAgent<DataAndTechnicalsAnalysis>(systemInstruction, userPrompt, true);
         return result;
     } catch (e) {
         console.error(e);
-        throw new Error(e instanceof Error ? e.message : `Data and technicals extraction failed.`);
+        throw new Error(e instanceof Error ? e.message : `Data and technicals extraction failed for ${screenerName}.`);
     }
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { StockCategory } from '../types';
-import { SearchIcon, PlusIcon, SpinnerIcon, XMarkIcon } from './IconComponents';
-import { AnalysisCacheItem } from '../../App';
+import { SearchIcon, PlusIcon, SpinnerIcon, XMarkIcon, DatabaseIcon } from './IconComponents';
+import { AnalysisCacheItem, CACHE_TTL_MS } from '../../App';
 import { Tooltip } from './Tooltip';
 
 interface StockExplorerProps {
@@ -165,7 +165,8 @@ export const StockExplorer: React.FC<StockExplorerProps> = ({
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
                 {symbolsToShow.map(symbol => {
                     const cachedData = analysisCache[symbol];
-                    const indicator = cachedData ? getRecommendationIndicator(cachedData.analysisResult.recommendation) : null;
+                    const isCached = cachedData && (Date.now() - cachedData.timestamp < CACHE_TTL_MS);
+                    const indicator = isCached ? getRecommendationIndicator(cachedData.analysisResult.recommendation) : null;
                     
                     return (
                         <div key={symbol} className="relative group">
@@ -176,7 +177,12 @@ export const StockExplorer: React.FC<StockExplorerProps> = ({
                                 data-test={`stock-button-${symbol}`}
                             >
                                 {symbol}
-                                {indicator && isCustomStock(symbol) && (
+                                {isCached && (
+                                    <Tooltip text="Cached analysis available for instant view">
+                                        <DatabaseIcon className="h-4 w-4 text-blue-400" />
+                                    </Tooltip>
+                                )}
+                                {indicator && (
                                     <Tooltip text={indicator.tooltip}>
                                         <span className={`h-2 w-2 rounded-full ${indicator.color} block`}></span>
                                     </Tooltip>
