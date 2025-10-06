@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { RawFinancials, FinancialStatement, TechnicalAnalysis } from '../../types';
+import { RawFinancials, FinancialStatement, QuantitativeAnalysis } from '../../types';
 import { SimpleChart, ChartFundamentalData } from './SimpleChart';
 
 interface ChartsTabProps {
   rawFinancials: RawFinancials | null;
-  technicalAnalysis: TechnicalAnalysis | null;
+  quantitativeAnalysis: QuantitativeAnalysis | null;
 }
 
 const fundamentalOptions = [
@@ -28,7 +28,7 @@ const extractFundamentalData = (statement: FinancialStatement | undefined, rowLa
 };
 
 
-export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials, technicalAnalysis }) => {
+export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials, quantitativeAnalysis }) => {
     const [selectedFundamentalKey, setSelectedFundamentalKey] = useState<string>('revenue');
 
     const priceData = useMemo(() => {
@@ -64,7 +64,7 @@ export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials, technicalAn
     // Specific check for price data after confirming rawFinancials exists
     if (priceData.length === 0) {
          return (
-            <div className="flex items-center justify-center p-8 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 h-full text-slate-500">
+            <div className="flex items-center justify-center p-8 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 h-full text-slate-500 text-center">
                 Historical price data could not be retrieved for this stock.
             </div>
         );
@@ -96,7 +96,7 @@ export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials, technicalAn
                     priceData={priceData} 
                     fundamentalData={fundamentalData} 
                     fundamentalLabel={selectedFundamental?.label || ''}
-                    forecast={technicalAnalysis?.forecast}
+                    forecast={quantitativeAnalysis?.forecast}
                 />
             </div>
         </div>

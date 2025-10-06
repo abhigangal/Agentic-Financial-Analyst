@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ExecutionStep, CalculatedMetric, GroundingSource, MarketIntelligenceAnalysis, TechnicalAnalysis, ContrarianAnalysis, RawFinancials, Snapshot } from '../types';
-import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, ScaleIcon, ShieldExclamationIcon, PresentationChartLineIcon, ClipboardDocumentListIcon, ClockIcon, InformationCircleIcon, ArrowPathIcon } from './IconComponents';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ExecutionStep, CalculatedMetric, GroundingSource, MarketIntelligenceAnalysis, TechnicalAnalysis, ContrarianAnalysis, RawFinancials, Snapshot, QuantitativeAnalysis } from '../types';
+import { FinancialAdvisorIcon, LeafIcon, GlobeAltIcon, UserGroupIcon, ChatBubbleLeftRightIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, SparklesIcon, ScaleIcon, ShieldExclamationIcon, PresentationChartLineIcon, ClipboardDocumentListIcon, ClockIcon, InformationCircleIcon, ArrowPathIcon, ChartBarIcon } from './IconComponents';
 import { ResultDisplay } from './ResultDisplay';
 import { AgenticNexusLoader } from './AgenticNexusLoader';
 import { SidekickAgentCard } from './SidekickAgentCard';
@@ -20,6 +20,7 @@ import { PlanAndSteps } from './PlanAndSteps';
 import { ChartsTab } from './charts/ChartsTab';
 import { FinancialsTab } from './financials/FinancialsTab';
 import { SnapshotsTab } from './snapshots/SnapshotsTab';
+import { QuantitativeAgentCard } from './quantitative/QuantitativeAgentCard';
 
 const TechnicalResultDisplay: React.FC<{ result: TechnicalAnalysis }> = ({ result }) => {
     return (
@@ -113,6 +114,7 @@ interface TabbedAnalysisProps {
   corporateCalendarAnalysis: CorporateCalendarAnalysis | null;
   technicalAnalysis: TechnicalAnalysis | null;
   contrarianAnalysis: ContrarianAnalysis | null;
+  quantitativeAnalysis: QuantitativeAnalysis | null;
   currencySymbol: string;
   onRetry: () => void;
   enabledAgents: Record<AgentKey, boolean> | null;
@@ -135,6 +137,7 @@ const TABS = {
     FINANCIALS: 'Financials',
     SNAPSHOTS: 'Snapshots',
     METHODOLOGY: 'Methodology',
+    QUANT_FORECAST: 'Quant Forecast',
     ESG: 'ESG',
     MACRO: 'Macro',
     MARKET_INTEL: 'Market Intel',
@@ -147,7 +150,7 @@ const TABS = {
 };
 
 export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
-  const { currentSymbol, analysisResult, currencySymbol, onRetry, analysisPhase, agentStatuses, enabledAgents, executionLog, analysisPlan, onRetryStep, rawFinancials, calculatedMetrics, technicalAnalysis, snapshots, isCachedView, onRefresh, analysisCache } = props;
+  const { currentSymbol, analysisResult, currencySymbol, onRetry, analysisPhase, agentStatuses, enabledAgents, executionLog, analysisPlan, onRetryStep, rawFinancials, calculatedMetrics, technicalAnalysis, snapshots, isCachedView, onRefresh, analysisCache, quantitativeAnalysis } = props;
   
   const isLoading = analysisPhase !== 'IDLE' && analysisPhase !== 'COMPLETE' && analysisPhase !== 'ERROR' && analysisPhase !== 'PAUSED';
   const financialError = agentStatuses.financial.error;
@@ -192,6 +195,7 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                 <Tabs.Tab id={TABS.FINANCIALS} data-test="analysis-tab-financials"><div className="flex items-center gap-2"><ClipboardDocumentListIcon className="h-5 w-5" /> Financials</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.SNAPSHOTS} data-test="analysis-tab-snapshots"><div className="flex items-center gap-2"><ClockIcon className="h-5 w-5" /> Snapshots</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.METHODOLOGY} data-test="analysis-tab-methodology"><div className="flex items-center gap-2"><SparklesIcon className="h-5 w-5" /> Methodology</div></Tabs.Tab>
+                <Tabs.Tab id={TABS.QUANT_FORECAST} data-test="analysis-tab-quant-forecast"><div className="flex items-center gap-2"><ChartBarIcon className="h-5 w-5" /> Quant Forecast</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.TECHNICALS} data-test="analysis-tab-technicals"><div className="flex items-center gap-2"><ScaleIcon className="h-5 w-5" /> Technicals</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.BEAR_CASE} data-test="analysis-tab-bear-case"><div className="flex items-center gap-2"><ShieldExclamationIcon className="h-5 w-5" /> Bear Case</div></Tabs.Tab>
                 <Tabs.Tab id={TABS.MARKET_INTEL} data-test="analysis-tab-market-intel"><div className="flex items-center gap-2"><ChatBubbleLeftRightIcon className="h-5 w-5" /> Market Intel</div></Tabs.Tab>
@@ -255,7 +259,7 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                     )}
                 </Tabs.Panel>
                  <Tabs.Panel id={TABS.CHARTS}>
-                    <ChartsTab rawFinancials={rawFinancials} technicalAnalysis={technicalAnalysis} />
+                    <ChartsTab rawFinancials={rawFinancials} quantitativeAnalysis={quantitativeAnalysis} />
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.FINANCIALS}>
                     <FinancialsTab rawFinancials={rawFinancials} stockSymbol={currentSymbol} />
@@ -273,8 +277,13 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                         analysisResult={analysisResult}
                     />
                 </Tabs.Panel>
+                 <Tabs.Panel id={TABS.QUANT_FORECAST}>
+                    <SidekickAgentCard title="Quantitative Forecast" icon={<ChartBarIcon className="h-5 w-5" />} isLoading={agentStatuses.quantitative.isLoading} error={agentStatuses.quantitative.error}>
+                        <QuantitativeAgentCard result={props.quantitativeAnalysis} />
+                    </SidekickAgentCard>
+                </Tabs.Panel>
                 <Tabs.Panel id={TABS.TECHNICALS}>
-{/* FIX: Add nullish coalescing to handle potential undefined values from optional chaining, preventing a type error. */}
+                    {/* FIX: Add nullish coalescing to handle potential undefined values from optional chaining, preventing a type error. */}
                     <SidekickAgentCard title="Technical Analysis" icon={<ScaleIcon className="h-5 w-5" />} isLoading={agentStatuses.data_and_technicals?.isLoading ?? false} error={agentStatuses.data_and_technicals?.error ?? null}>
                         <TechnicalAgentCard result={props.technicalAnalysis} />
                     </SidekickAgentCard>

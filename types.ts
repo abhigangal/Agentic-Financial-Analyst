@@ -1,5 +1,5 @@
 // This file now contains the canonical AgentKey type.
-export type AgentKey = 'esg' | 'macro' | 'market_intel' | 'leadership' | 'competitive' | 'sector' | 'calendar' | 'contrarian';
+export type AgentKey = 'esg' | 'macro' | 'market_intel' | 'leadership' | 'competitive' | 'sector' | 'calendar' | 'contrarian' | 'quantitative';
 
 export interface GroundingSource {
   uri: string;
@@ -85,6 +85,7 @@ export interface LeadershipAnalysis {
   overall_assessment: 'Strong' | 'Average' | 'Weak' | 'N/A';
   summary: string;
   leadership_recently_changed: boolean;
+  management_confidence_score: number; // Range 0.0 to 1.0
   key_executives: ExecutiveProfile[];
   sources?: GroundingSource[];
   na_justifications?: {
@@ -155,7 +156,7 @@ export interface CorporateCalendarAnalysis {
 export interface ChiefAnalystCritique {
   conflict_summary: string;
   remediation_question: string;
-  target_agent: 'ESG' | 'MACRO' | 'LEADERSHIP' | 'COMPETITIVE' | 'SECTOR' | 'CALENDAR' | 'CONTRARIAN' | 'None' | 'MARKET_INTEL';
+  target_agent: 'ESG' | 'MACRO' | 'LEADERSHIP' | 'COMPETITIVE' | 'SECTOR' | 'CALENDAR' | 'CONTRARIAN' | 'None' | 'MARKET_INTEL' | 'QUANTITATIVE';
   reasoning: string;
 }
 
@@ -166,6 +167,7 @@ export interface InstitutionalHolder {
 
 export interface MarketIntelligenceAnalysis {
   overall_sentiment: 'Positive' | 'Negative' | 'Neutral' | 'N/A';
+  sentiment_score: number; // Range -1.0 (very negative) to 1.0 (very positive)
   intelligence_summary: string;
   key_articles: NewsArticle[];
   regulatory_and_geopolitical_risks: RegulatoryAndGeopoliticalRisk[];
@@ -176,6 +178,21 @@ export interface MarketIntelligenceAnalysis {
   sources?: GroundingSource[];
   na_justifications?: { [key: string]: string; };
 }
+
+export interface QuantitativeAnalysis {
+  summary: string;
+  forecast: {
+    price_target: number | null;
+    confidence_interval: [number | null, number | null];
+    rationale: string;
+  };
+  key_drivers: {
+    feature: string; // e.g., "Sentiment Score", "Historical Trend"
+    impact: 'Positive' | 'Negative' | 'Neutral';
+    weight: 'High' | 'Medium' | 'Low';
+  }[];
+}
+
 
 export interface TechnicalAnalysis {
   trend: 'Uptrend' | 'Downtrend' | 'Sideways' | 'N/A';
@@ -270,6 +287,7 @@ export interface StockAnalysis {
     corporate_calendar_summary: string;
     technical_analysis_summary: string;
     contrarian_summary: string;
+    quantitative_summary: string;
   };
   justification: {
     nutshell_summary: string;
@@ -301,6 +319,7 @@ export interface StockAnalysis {
   chiefAnalystCritique?: ChiefAnalystCritique & { refined_answer?: string };
   technicalAnalysis?: TechnicalAnalysis | null;
   contrarianAnalysis?: ContrarianAnalysis | null;
+  quantitativeAnalysis?: QuantitativeAnalysis | null;
 }
 
 export interface ExpertPick {

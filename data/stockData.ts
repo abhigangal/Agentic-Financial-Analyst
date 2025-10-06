@@ -46,6 +46,8 @@ export const mockLeadershipAnalysis: LeadershipAnalysis = {
     overall_assessment: 'Strong',
     summary: 'The leadership team at MockCorp is experienced and has a clear vision for growth. The CEO has been with the company for over a decade, providing stability. Recent strategic hires in technology have positioned the company well for digital transformation.',
     leadership_recently_changed: false,
+    // FIX: Add required 'management_confidence_score' property.
+    management_confidence_score: 0.85,
     key_executives: [
         { name: 'Alice Johnson', role: 'CEO', tenure: '12 years', summary: 'Visionary leader with a strong track record in operational efficiency.', impact_rating: 5 },
         { name: 'Bob Williams', role: 'CFO', tenure: '3 years', summary: 'Brought in to modernize financial systems. Has successfully reduced debt.', impact_rating: 4 },
@@ -57,6 +59,8 @@ export const mockLeadershipAnalysis: LeadershipAnalysis = {
 // FIX: This mock data was for the deprecated `NewsAnalysis` type. It's updated to be `MarketIntelligenceAnalysis`.
 export const mockMarketIntelligenceAnalysis: MarketIntelligenceAnalysis = {
     overall_sentiment: 'Positive',
+    // FIX: Add required 'sentiment_score' property.
+    sentiment_score: 0.7,
     intelligence_summary: 'Recent news coverage has been largely positive, focusing on the successful launch of a new product line and strong quarterly earnings. Minor concerns about supply chain are present but overshadowed by positive outlook.',
     key_articles: [
         { title: 'MockCorp Launches Innovative New Product', summary: 'The new product is expected to capture significant market share.', sentiment: 'Positive', source_url: 'https://example.com/news1' },
@@ -137,6 +141,8 @@ export const mockStockAnalysis: StockAnalysis = {
         corporate_calendar_summary: 'Upcoming earnings call is a key catalyst to watch.',
         technical_analysis_summary: 'The stock is in a clear uptrend, trading above its key moving averages.',
         contrarian_summary: 'While the outlook is positive, high valuation and potential for increased competition are points of concern.',
+        // FIX: Add required 'quantitative_summary' property.
+        quantitative_summary: 'The quantitative model projects a modest uptrend based on historical momentum.',
     },
     justification: {
         nutshell_summary: 'Investing in MockCorp is like betting on a well-managed ship navigating favorable seas. Strong leadership and positive market trends make it a compelling choice.',

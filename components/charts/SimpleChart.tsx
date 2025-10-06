@@ -1,5 +1,5 @@
 import React from 'react';
-import { TechnicalAnalysis } from '../../types';
+import { QuantitativeAnalysis } from '../../types';
 
 export interface ChartPriceData {
     date: Date;
@@ -15,7 +15,7 @@ interface SimpleChartProps {
     priceData: ChartPriceData[];
     fundamentalData: ChartFundamentalData[] | null;
     fundamentalLabel: string;
-    forecast?: TechnicalAnalysis['forecast'];
+    forecast?: QuantitativeAnalysis['forecast'];
 }
 
 const AXIS_COLOR = "#94a3b8"; // slate-400

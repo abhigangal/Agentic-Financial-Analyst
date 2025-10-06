@@ -1,6 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, TechnicalAnalysis, ContrarianAnalysis, DataAndTechnicalsAnalysis, AgentKey } from '../types';
-import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, MARKET_INTELLIGENCE_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, DATA_AND_TECHNICALS_AGENT_PROMPT, CONTRARIAN_AGENT_PROMPT, DATA_AND_TECHNICALS_FINVIZ_AGENT_PROMPT, DATA_AND_TECHNICALS_YAHOO_AGENT_PROMPT } from '../constants';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, TechnicalAnalysis, ContrarianAnalysis, DataAndTechnicalsAnalysis, AgentKey, QuantitativeAnalysis, HistoricalPriceDataPoint } from '../types';
+import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, MARKET_INTELLIGENCE_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, DATA_AND_TECHNICALS_AGENT_PROMPT, CONTRARIAN_AGENT_PROMPT, DATA_AND_TECHNICALS_FINVIZ_AGENT_PROMPT, DATA_AND_TECHNICALS_YAHOO_AGENT_PROMPT, QUANTITATIVE_AGENT_PROMPT, DATA_AND_TECHNICALS_BANK_AGENT_PROMPT } from '../constants';
 
 if (!process.env.API_KEY) {
   // The error handling in the app will catch the error from the SDK
@@ -289,7 +289,28 @@ export async function getContrarianAnalysis(draftSummary: string, specialistCont
     }
 }
 
-export async function getDataAndTechnicalsAnalysis(screenerUrl: string, screenerName: string, marketName: string): Promise<DataAndTechnicalsAnalysis> {
+export async function getQuantitativeAnalysis(
+    historicalPrices: HistoricalPriceDataPoint[],
+    sentimentScore: number | null,
+    managementConfidence: number | null
+): Promise<QuantitativeAnalysis> {
+    const userPrompt = `
+        HISTORICAL DATA (last 30 days):
+        ${historicalPrices.slice(-30).map(p => `${p.date}: ${p.close}`).join('\n')}
+
+        QUALITATIVE SIGNALS:
+        - sentiment_score: ${sentimentScore ?? 'N/A'}
+        - management_confidence_score: ${managementConfidence ?? 'N/A'}
+    `;
+    try {
+        return await runAgent<QuantitativeAnalysis>(QUANTITATIVE_AGENT_PROMPT, userPrompt, false);
+    } catch(e) {
+        console.error(e);
+        throw new Error(e instanceof Error ? e.message : `Quantitative analysis failed.`);
+    }
+}
+
+export async function getDataAndTechnicalsAnalysis(screenerUrl: string, screenerName: string, marketName: string, isBank: boolean = false): Promise<DataAndTechnicalsAnalysis> {
     const userPrompt = `Please extract financial data and perform technical analysis for the company at URL: ${screenerUrl}`;
     try {
         let systemInstruction: string;
@@ -302,7 +323,7 @@ export async function getDataAndTechnicalsAnalysis(screenerUrl: string, screener
                  break;
             case 'Screener.in':
             default:
-                systemInstruction = DATA_AND_TECHNICALS_AGENT_PROMPT;
+                systemInstruction = isBank ? DATA_AND_TECHNICALS_BANK_AGENT_PROMPT : DATA_AND_TECHNICALS_AGENT_PROMPT;
                 break;
         }
         
@@ -452,6 +473,7 @@ export async function getStockAnalysis(
             corporate_calendar_summary: rawData.contextual_inputs?.corporate_calendar_summary || context.calendar,
             technical_analysis_summary: rawData.contextual_inputs?.technical_analysis_summary || context.technical,
             contrarian_summary: rawData.contextual_inputs?.contrarian_summary || context.contrarian,
+            quantitative_summary: rawData.contextual_inputs?.quantitative_summary || context.quantitative,
         },
         na_justifications: naJustifications
     };

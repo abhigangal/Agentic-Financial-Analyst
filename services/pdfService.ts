@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ChiefAnalystCritique, FinancialMetrics, TechnicalAnalysis, ContrarianAnalysis, ExecutiveProfile, ExecutionStep } from '../types';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, GroundingSource, RiskAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, CalculatedMetric, ChiefAnalystCritique, FinancialMetrics, TechnicalAnalysis, ContrarianAnalysis, ExecutiveProfile, ExecutionStep, QuantitativeAnalysis } from '../types';
 
 // --- Color and Font Definitions for a Professional Theme ---
 const COLORS = {
@@ -417,7 +417,8 @@ export async function generateAnalysisPdf(
   corporateCalendarAnalysis: CorporateCalendarAnalysis | null,
   technicalAnalysis: TechnicalAnalysis | null,
   contrarianAnalysis: ContrarianAnalysis | null,
-  currencySymbol: string
+  quantitativeAnalysis: QuantitativeAnalysis | null,
+  currencySymbol: string,
 ) {
     const title = `Financial Analysis Report: ${analysisResult.share_name} (${analysisResult.stock_symbol})`;
     const builder = new PdfBuilder(title);
@@ -435,6 +436,22 @@ export async function generateAnalysisPdf(
     if (analysisResult.risk_analysis) {
         builder.addSubsectionTitle('Risk Overview');
         builder.addRiskAnalysis(analysisResult.risk_analysis);
+    }
+
+    if (quantitativeAnalysis) {
+        builder.addSectionTitle('Quantitative Forecast (30-Day)');
+        const { forecast, summary, key_drivers } = quantitativeAnalysis;
+        const target = formatPrice(forecast.price_target, currencySymbol);
+        const interval = `(${formatPrice(forecast.confidence_interval[0], currencySymbol)} - ${formatPrice(forecast.confidence_interval[1], currencySymbol)})`;
+        builder.addKeyValueGrid({
+            'Price Target': target,
+            'Confidence Interval': interval
+        }, 2);
+        builder.addBodyText(summary);
+        builder.addBodyText(forecast.rationale);
+
+        const driversText = key_drivers.map(d => `${d.feature} (${d.weight} ${d.impact})`);
+        builder.addBulletedList('Key Model Drivers:', driversText);
     }
 
     if (competitiveAnalysis) {

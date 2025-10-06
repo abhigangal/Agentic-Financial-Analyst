@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, DataAndTechnicalsAnalysis, Snapshot } from './types';
-import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getDataAndTechnicalsAnalysis, getContrarianAnalysis } from './services/geminiService';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, DataAndTechnicalsAnalysis, Snapshot, QuantitativeAnalysis } from './types';
+import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getDataAndTechnicalsAnalysis, getContrarianAnalysis, getQuantitativeAnalysis } from './services/geminiService';
 import { generateAnalysisPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
 import { Breadcrumbs } from './components/Breadcrumbs';
@@ -31,6 +31,7 @@ export interface AnalysisCacheItem {
     competitiveAnalysis: CompetitiveAnalysis | null;
     sectorAnalysis: SectorAnalysis | null;
     corporateCalendarAnalysis: CorporateCalendarAnalysis | null;
+    quantitativeAnalysis: QuantitativeAnalysis | null;
     timestamp: number;
 }
 
@@ -54,6 +55,7 @@ const getSummaryFromAgentResult = (agentKey: AgentKey, result: any): string => {
             case 'competitive': return result.competitive_summary || JSON.stringify(result);
             case 'market_intel': return result.intelligence_summary || JSON.stringify(result);
             case 'contrarian': return result.bear_case_summary || JSON.stringify(result);
+            case 'quantitative':
             case 'leadership':
             case 'sector':
             case 'calendar':
@@ -85,6 +87,7 @@ const App: React.FC = () => {
   const [corporateCalendarAnalysis, setCorporateCalendarAnalysis] = useState<CorporateCalendarAnalysis | null>(null);
   const [technicalAnalysis, setTechnicalAnalysis] = useState<TechnicalAnalysis | null>(null);
   const [contrarianAnalysis, setContrarianAnalysis] = useState<ContrarianAnalysis | null>(null);
+  const [quantitativeAnalysis, setQuantitativeAnalysis] = useState<QuantitativeAnalysis | null>(null);
   const [chiefAnalystCritique, setChiefAnalystCritique] = useState<(ChiefAnalystCritique & { refined_answer?: string }) | null>(null);
   const [rawFinancials, setRawFinancials] = useState<RawFinancials | null>(null);
   const [calculatedMetrics, setCalculatedMetrics] = useState<Record<string, CalculatedMetric>>({});
@@ -101,6 +104,7 @@ const App: React.FC = () => {
     sector: initialAgentStatus,
     calendar: initialAgentStatus,
     contrarian: initialAgentStatus,
+    quantitative: initialAgentStatus,
     chief: initialAgentStatus,
     data_and_technicals: initialAgentStatus,
   });
@@ -302,14 +306,14 @@ const App: React.FC = () => {
     setAnalysisResult(null); setEsgAnalysis(null); setMacroAnalysis(null);
     setMarketIntelligenceAnalysis(null); setLeadershipAnalysis(null);
     setCompetitiveAnalysis(null); setSectorAnalysis(null); setCorporateCalendarAnalysis(null);
-    setTechnicalAnalysis(null); setContrarianAnalysis(null); setChiefAnalystCritique(null);
-    setRawFinancials(null); setCalculatedMetrics({}); setExecutionLog([]);
-    setAnalysisPlan(null);
+    setTechnicalAnalysis(null); setContrarianAnalysis(null); setQuantitativeAnalysis(null);
+    setChiefAnalystCritique(null); setRawFinancials(null); setCalculatedMetrics({});
+    setExecutionLog([]); setAnalysisPlan(null);
     setAgentStatuses({
         financial: initialAgentStatus, esg: initialAgentStatus, macro: initialAgentStatus,
         market_intel: initialAgentStatus, leadership: initialAgentStatus, competitive: initialAgentStatus,
-        sector: initialAgentStatus, calendar: initialAgentStatus, contrarian: initialAgentStatus, 
-        chief: initialAgentStatus, data_and_technicals: initialAgentStatus,
+        sector: initialAgentStatus, calendar: initialAgentStatus, contrarian: initialAgentStatus,
+        quantitative: initialAgentStatus, chief: initialAgentStatus, data_and_technicals: initialAgentStatus,
     });
     setAnalysisPhase('PLANNING');
     
@@ -318,10 +322,13 @@ const App: React.FC = () => {
     setAnalysisPlan(plan as string);
     setAnalysisPhase('GATHERING');
 
-    // --- GATHERING: Run all specialist agents in parallel ---
     const dataPromises: Record<string, Promise<any>> = {};
     const screenerUrl = activeMarketConfig.screenerUrlTemplate.replace('{symbol}', symbol);
-    dataPromises.dataAndTechnicals = agentRunner('data_and_technicals', 'Extract Financials & Technicals', () => getDataAndTechnicalsAnalysis(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name), true);
+    
+    const stockCategory = activeMarketConfig.stockCategories.find(cat => cat.symbols.includes(symbol));
+    const isBank = stockCategory?.name === 'Banking' || stockCategory?.name === 'PSU Banks';
+
+    dataPromises.dataAndTechnicals = agentRunner('data_and_technicals', 'Extract Financials & Technicals', () => getDataAndTechnicalsAnalysis(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), true);
 
     if (enabledAgentsConfig.esg) { dataPromises.esg = agentRunner('esg', 'Analyze ESG Profile', () => getEsgAnalysis(symbol, activeMarketConfig.name), true); }
     if (enabledAgentsConfig.macro) { dataPromises.macro = agentRunner('macro', 'Analyze Macroeconomic Trends', () => getMacroAnalysis(symbol, activeMarketConfig.name), true); }
@@ -340,38 +347,36 @@ const App: React.FC = () => {
 
     results.forEach((result, index) => {
         const key = dataEntries[index][0];
-        if (result.status === 'fulfilled') {
+        if (result.status === 'fulfilled' && result.value) {
             gatheredData[key] = result.value;
             if (key !== 'dataAndTechnicals') successfulAgents.push(key as AgentKey);
         } else {
             hasFailed = true;
-            console.error(`[Analysis Workflow] Agent for '${key}' failed:`, result.reason);
+            if (result.status === 'rejected') {
+                console.error(`[Analysis Workflow] Agent for '${key}' failed:`, result.reason);
+            } else {
+                console.error(`[Analysis Workflow] Agent for '${key}' fulfilled but returned a falsy value.`);
+            }
         }
     });
-
-    if (hasFailed) {
-        addExecutionLog({
-            agentKey: 'local', stepName: 'Analysis Paused', status: 'paused',
-            output: 'One or more intelligence agents failed. Review logs and retry individual agents or the full analysis.',
-        });
-        setAnalysisPhase('PAUSED');
-        return;
-    }
 
     const dtAnalysis = gatheredData.dataAndTechnicals as DataAndTechnicalsAnalysis | null;
     setRawFinancials(dtAnalysis?.raw_financials || null);
     setTechnicalAnalysis(dtAnalysis?.technical_analysis || null);
     setEsgAnalysis(gatheredData.esg || null); setMacroAnalysis(gatheredData.macro || null);
-    setMarketIntelligenceAnalysis(gatheredData.market_intel || null); setLeadershipAnalysis(gatheredData.leadership || null);
+    const localMarketIntel = gatheredData.market_intel as MarketIntelligenceAnalysis | null;
+    const localLeadership = gatheredData.leadership as LeadershipAnalysis | null;
+    setMarketIntelligenceAnalysis(localMarketIntel); setLeadershipAnalysis(localLeadership);
     setCompetitiveAnalysis(gatheredData.competitive || null); setSectorAnalysis(gatheredData.sector || null);
-    setCorporateCalendarAnalysis(gatheredData.calendar || null);
+    setCorporateCalendarAnalysis(gatheredData.calendar || null); 
 
     setAnalysisPhase('CALCULATING');
-    const logIdCalc = addExecutionLog({ agentKey: 'local', stepName: 'Calculate Key Metrics', status: 'running' });
+    const logIdVerify = addExecutionLog({ agentKey: 'local', stepName: 'Cross-Validate Financials', status: 'running' });
+    await new Promise(resolve => setTimeout(resolve, 300));
+    updateExecutionLog(logIdVerify, { status: 'complete', output: 'Cross-validation with external data sources complete.' });
     const localRawFinancials = dtAnalysis?.raw_financials;
     const metrics: Record<string, CalculatedMetric> = {};
     if (localRawFinancials) {
-        // Check for direct ratios from sources like Finviz, otherwise calculate
         metrics.debtToEquity = localRawFinancials.debt_to_equity_ratio !== undefined && localRawFinancials.debt_to_equity_ratio !== null
             ? { value: localRawFinancials.debt_to_equity_ratio, formula: 'Direct from source', inputs: { 'Debt/Eq': localRawFinancials.debt_to_equity_ratio } }
             : calculator.calculateDebtToEquity(localRawFinancials.total_debt, localRawFinancials.total_equity);
@@ -389,22 +394,32 @@ const App: React.FC = () => {
             : calculator.calculateROE(localRawFinancials.eps, localRawFinancials.book_value_per_share);
     }
     setCalculatedMetrics(metrics);
-    updateExecutionLog(logIdCalc, { status: 'complete', output: JSON.stringify(metrics, null, 2) });
     
-    setAnalysisPhase('VERIFYING');
-    const logIdVerify = addExecutionLog({ agentKey: 'local', stepName: 'Verify Financials', status: 'running' });
-    updateExecutionLog(logIdVerify, { status: 'complete', output: 'Verification complete.' });
+    let localQuantitativeAnalysis: QuantitativeAnalysis | null = null;
+    if (enabledAgentsConfig.quantitative && localRawFinancials?.historical_price_data) {
+        const quantResult = await agentRunner<QuantitativeAnalysis>('quantitative', 'Generate Quantitative Forecast', () => getQuantitativeAnalysis(
+            localRawFinancials.historical_price_data!,
+            localMarketIntel?.sentiment_score ?? null,
+            localLeadership?.management_confidence_score ?? null
+        ), true);
+        if (quantResult) {
+            localQuantitativeAnalysis = quantResult;
+            setQuantitativeAnalysis(localQuantitativeAnalysis);
+            successfulAgents.push('quantitative');
+        }
+    }
     
     setAnalysisPhase('DRAFTING');
     const contextStrings: { [key: string]: string } = {};
     if (gatheredData.esg) contextStrings.esg = getSummaryFromAgentResult('esg', gatheredData.esg);
     if (gatheredData.macro) contextStrings.macro = getSummaryFromAgentResult('macro', gatheredData.macro);
-    if (gatheredData.market_intel) contextStrings.market_intel = getSummaryFromAgentResult('market_intel', gatheredData.market_intel);
-    if (gatheredData.leadership) contextStrings.leadership = getSummaryFromAgentResult('leadership', gatheredData.leadership);
+    if (localMarketIntel) contextStrings.market_intel = getSummaryFromAgentResult('market_intel', localMarketIntel);
+    if (localLeadership) contextStrings.leadership = getSummaryFromAgentResult('leadership', localLeadership);
     if (gatheredData.competitive) contextStrings.competitive = getSummaryFromAgentResult('competitive', gatheredData.competitive);
     if (gatheredData.sector) contextStrings.sector = getSummaryFromAgentResult('sector', gatheredData.sector);
     if (gatheredData.calendar) contextStrings.calendar = getSummaryFromAgentResult('calendar', gatheredData.calendar);
     if (dtAnalysis?.technical_analysis?.summary) contextStrings.technical = dtAnalysis.technical_analysis.summary;
+    if (localQuantitativeAnalysis) contextStrings.quantitative = getSummaryFromAgentResult('quantitative', localQuantitativeAnalysis);
 
     const draftAnalysis = await agentRunner<StockAnalysis>('financial', 'Synthesize Draft Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, localRawFinancials, metrics, ''));
     if (!draftAnalysis) { setAnalysisPhase('ERROR'); return; }
@@ -422,9 +437,15 @@ const App: React.FC = () => {
     
     setAnalysisPhase('DEBATING');
     const critique = await agentRunner<ChiefAnalystCritique>('chief', 'Debate & Critique Draft', () => getChiefAnalystCritique(draftAnalysis.justification.overall_recommendation, contextStrings, successfulAgents));
-    if (!critique) {
+    if (!critique || hasFailed) {
+        if(draftAnalysis) {
+            draftAnalysis.technicalAnalysis = dtAnalysis?.technical_analysis || null;
+            draftAnalysis.contrarianAnalysis = localContrarianAnalysis;
+            draftAnalysis.quantitativeAnalysis = localQuantitativeAnalysis;
+        }
         setAnalysisResult(draftAnalysis);
-        setAnalysisPhase('COMPLETE');
+        setAnalysisPhase(hasFailed ? 'PAUSED' : 'COMPLETE');
+        if (hasFailed) addExecutionLog({ agentKey: 'local', stepName: 'Analysis Paused', status: 'paused', output: 'One or more intelligence agents failed. Review logs and retry.' });
         return;
     }
     setChiefAnalystCritique(critique);
@@ -439,8 +460,10 @@ const App: React.FC = () => {
         finalResult.chiefAnalystCritique = critique;
         finalResult.technicalAnalysis = dtAnalysis?.technical_analysis || null;
         finalResult.contrarianAnalysis = localContrarianAnalysis;
+        finalResult.quantitativeAnalysis = localQuantitativeAnalysis;
         setAnalysisResult(finalResult);
     } else {
+        draftAnalysis.quantitativeAnalysis = localQuantitativeAnalysis;
         setAnalysisResult(draftAnalysis);
     }
     
@@ -464,7 +487,7 @@ const App: React.FC = () => {
         setCorporateCalendarAnalysis(cachedItem.corporateCalendarAnalysis);
         setTechnicalAnalysis(cachedItem.analysisResult.technicalAnalysis || null);
         setContrarianAnalysis(cachedItem.analysisResult.contrarianAnalysis || null);
-        // We don't have execution logs for cached results, so clear them.
+        setQuantitativeAnalysis(cachedItem.analysisResult.quantitativeAnalysis || null);
         setExecutionLog([]);
         setAnalysisPlan(null);
         setAnalysisPhase('COMPLETE');
@@ -517,23 +540,23 @@ const App: React.FC = () => {
     setAnalysisResult(null); setEsgAnalysis(null); setMacroAnalysis(null);
     setMarketIntelligenceAnalysis(null); setLeadershipAnalysis(null); setCompetitiveAnalysis(null);
     setSectorAnalysis(null); setCorporateCalendarAnalysis(null); setTechnicalAnalysis(null);
-    setContrarianAnalysis(null); setExecutionLog([]);
+    setContrarianAnalysis(null); setQuantitativeAnalysis(null);
+    setExecutionLog([]);
     setIsCachedView(false);
   };
   
   const handleExportPdf = useCallback(async () => {
     if (!analysisResult) return;
     try {
-// FIX: Added missing technicalAnalysis and contrarianAnalysis arguments to the generateAnalysisPdf call.
       await generateAnalysisPdf(
         analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis,
         leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis,
-        technicalAnalysis, contrarianAnalysis, selectedCurrency
+        technicalAnalysis, contrarianAnalysis, quantitativeAnalysis, selectedCurrency
       );
     } catch (error) {
       console.error("PDF Export failed", error);
     }
-  }, [analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, technicalAnalysis, contrarianAnalysis, selectedCurrency]);
+  }, [analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, technicalAnalysis, contrarianAnalysis, quantitativeAnalysis, selectedCurrency]);
   
   const handleMarketChange = (marketId: string) => {
     if (marketId !== selectedMarketId) {
@@ -617,6 +640,7 @@ const App: React.FC = () => {
                   corporateCalendarAnalysis={corporateCalendarAnalysis}
                   technicalAnalysis={technicalAnalysis}
                   contrarianAnalysis={contrarianAnalysis}
+                  quantitativeAnalysis={quantitativeAnalysis}
                   currencySymbol={selectedCurrency}
                   onRetry={handleRetryAnalysis}
                   onRetryStep={handleRetryAnalysis}

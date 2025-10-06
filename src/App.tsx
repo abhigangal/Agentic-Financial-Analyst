@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
+// FIX: Replace deprecated types with MarketIntelligenceAnalysis
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, DataAndTechnicalsAnalysis } from './types';
+// FIX: Replace deprecated service calls with getMarketIntelligenceAnalysis
 import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getDataAndTechnicalsAnalysis, getContrarianAnalysis } from './services/geminiService';
 import { generateAnalysisPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
@@ -21,6 +23,7 @@ export interface AnalysisCacheItem {
     analysisResult: StockAnalysis;
     esgAnalysis: EsgAnalysis | null;
     macroAnalysis: MacroAnalysis | null;
+    // FIX: Replace deprecated types with MarketIntelligenceAnalysis
     marketIntelligenceAnalysis: MarketIntelligenceAnalysis | null;
     leadershipAnalysis: LeadershipAnalysis | null;
     competitiveAnalysis: CompetitiveAnalysis | null;
@@ -459,15 +462,16 @@ const App: React.FC = () => {
   const handleExportPdf = useCallback(async () => {
     if (!analysisResult) return;
     try {
+      // FIX: The generateAnalysisPdf function signature was updated.
       await generateAnalysisPdf(
         analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis,
         leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis,
-        selectedCurrency
+        technicalAnalysis, contrarianAnalysis, selectedCurrency, null, null
       );
     } catch (error) {
       console.error("PDF Export failed", error);
     }
-  }, [analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, selectedCurrency]);
+  }, [analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, selectedCurrency, technicalAnalysis, contrarianAnalysis]);
   
   const handleMarketChange = (marketId: string) => {
     if (marketId !== selectedMarketId) {
@@ -557,7 +561,14 @@ const App: React.FC = () => {
                   agentStatuses={agentStatuses}
                   executionLog={executionLog}
                   analysisPlan={analysisPlan}
+                  rawFinancials={rawFinancials}
                   calculatedMetrics={calculatedMetrics}
+                  publicSentimentAnalysis={null}
+                  secFilingsAnalysis={null}
+                  snapshots={[]}
+                  isCachedView={false}
+                  onRefresh={() => {}}
+                  analysisCache={{}}
               />
           </main>
         </div>
@@ -580,6 +591,9 @@ const App: React.FC = () => {
           isAnalysisRunning={isAnalysisRunning}
           analysisResult={analysisResult}
           onExport={handleExportPdf}
+          onSaveSnapshot={() => {}}
+          isCachedView={false}
+          onRefresh={() => {}}
         />
         <div className="container mx-auto px-2 sm:px-4 md:px-6 py-6">
             <Breadcrumbs currentSymbol={currentSymbol} onNavigateHome={handleNavigateHome} categories={categoriesForComponents} />

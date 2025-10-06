@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AnalysisCacheItem, CACHE_TTL_MS } from '../App';
 import { AgentKey } from '../types';
-import { DatabaseIcon, LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, PlayCircleIcon, ChatBubbleLeftRightIcon, ScaleIcon, ShieldExclamationIcon } from './IconComponents';
+import { DatabaseIcon, LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, PlayCircleIcon, ChatBubbleLeftRightIcon, ScaleIcon, ShieldExclamationIcon, ChartBarIcon } from './IconComponents';
 
 interface AgentConfig {
     key: AgentKey;
@@ -18,7 +18,8 @@ export const agentConfigurations: AgentConfig[] = [
     { key: 'competitive', name: 'Competition', description: 'Analyzes the competitive landscape and key rivals.', icon: <TrophyIcon className="h-6 w-6 text-amber-500" /> },
     { key: 'sector', name: 'Sector Outlook', description: 'Identifies tailwinds and headwinds for the industry.', icon: <BuildingOfficeIcon className="h-6 w-6 text-indigo-500" /> },
     { key: 'calendar', name: 'Corp. Calendar', description: 'Finds upcoming corporate events, earnings, and dates.', icon: <CalendarDaysIcon className="h-6 w-6 text-rose-500" /> },
-    { key: 'contrarian', name: 'Contrarian Case', description: 'Challenges the consensus and builds a bear case.', icon: <ShieldExclamationIcon className="h-6 w-6 text-red-500" /> }
+    { key: 'contrarian', name: 'Contrarian Case', description: 'Challenges the consensus and builds a bear case.', icon: <ShieldExclamationIcon className="h-6 w-6 text-red-500" /> },
+    { key: 'quantitative', name: 'Quantitative Forecast', description: 'Simulates a time-series model for a 30-day price forecast.', icon: <ChartBarIcon className="h-6 w-6 text-blue-500" /> },
 ];
 
 const allAgentsEnabled = agentConfigurations.reduce((acc, agent) => {
