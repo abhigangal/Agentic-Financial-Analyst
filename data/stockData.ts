@@ -46,7 +46,6 @@ export const mockLeadershipAnalysis: LeadershipAnalysis = {
     overall_assessment: 'Strong',
     summary: 'The leadership team at MockCorp is experienced and has a clear vision for growth. The CEO has been with the company for over a decade, providing stability. Recent strategic hires in technology have positioned the company well for digital transformation.',
     leadership_recently_changed: false,
-    // FIX: Add required 'management_confidence_score' property.
     management_confidence_score: 0.85,
     key_executives: [
         { name: 'Alice Johnson', role: 'CEO', tenure: '12 years', summary: 'Visionary leader with a strong track record in operational efficiency.', impact_rating: 5 },
@@ -56,10 +55,8 @@ export const mockLeadershipAnalysis: LeadershipAnalysis = {
     sources: [{ uri: 'https://example.com/leadership', title: 'MockCorp Leadership Page' }],
 };
 
-// FIX: This mock data was for the deprecated `NewsAnalysis` type. It's updated to be `MarketIntelligenceAnalysis`.
 export const mockMarketIntelligenceAnalysis: MarketIntelligenceAnalysis = {
     overall_sentiment: 'Positive',
-    // FIX: Add required 'sentiment_score' property.
     sentiment_score: 0.7,
     intelligence_summary: 'Recent news coverage has been largely positive, focusing on the successful launch of a new product line and strong quarterly earnings. Minor concerns about supply chain are present but overshadowed by positive outlook.',
     key_articles: [
@@ -117,7 +114,6 @@ export const mockStockAnalysis: StockAnalysis = {
     recommendation: 'Buy',
     confidence_score: 'high',
     investment_horizon: { short_term: 'Buy', long_term: 'Strong Buy' },
-    // FIX: Type 'number' is not assignable to type '{ low: number; high: number; }'.
     target_price: { short_term: { low: 162.00, high: 168.00 }, long_term: { low: 195.00, high: 205.00 } },
     stop_loss: 140.00,
     risk_analysis: {
@@ -130,7 +126,6 @@ export const mockStockAnalysis: StockAnalysis = {
             'Exposure to regulatory changes in international markets.'
         ]
     },
-    // FIX: Replaced `news_summary` and `market_sentiment_summary` with the consolidated `market_intelligence_summary`.
     contextual_inputs: {
         esg_summary: 'MockCorp has a strong ESG profile with an AA rating.',
         macroeconomic_summary: 'The macroeconomic environment is favorable for the tech sector.',
@@ -141,7 +136,6 @@ export const mockStockAnalysis: StockAnalysis = {
         corporate_calendar_summary: 'Upcoming earnings call is a key catalyst to watch.',
         technical_analysis_summary: 'The stock is in a clear uptrend, trading above its key moving averages.',
         contrarian_summary: 'While the outlook is positive, high valuation and potential for increased competition are points of concern.',
-        // FIX: Add required 'quantitative_summary' property.
         quantitative_summary: 'The quantitative model projects a modest uptrend based on historical momentum.',
     },
     justification: {

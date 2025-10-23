@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalculatedMetric } from '../../types';
+import { CalculatedMetric } from '../types';
 import { Tooltip } from './Tooltip';
 import { InformationCircleIcon } from './IconComponents';
 
@@ -34,7 +34,7 @@ export const MetricWithProof: React.FC<MetricWithProofProps> = ({ metric, curren
     );
 
     const proofText = proof || Object.entries(inputs)
-        .map(([key, val]) => `${key}: ${formatNumber(val)}`)
+        .map(([key, val]) => `${key}: ${formatNumber(val as string | number | null)}`)
         .join(' | ');
 
     return (

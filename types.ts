@@ -232,6 +232,7 @@ export interface FinancialStatement {
 
 export interface RawFinancials {
     current_price: number | null;
+    last_updated_from_source?: string | null;
     eps: number | null; // Earnings Per Share
     book_value_per_share: number | null;
     total_debt: number | null;
@@ -251,9 +252,28 @@ export interface RawFinancials {
     quarterly_cash_flow?: FinancialStatement;
 }
 
-export interface DataAndTechnicalsAnalysis {
-  raw_financials: RawFinancials;
-  technical_analysis: TechnicalAnalysis;
+export interface LiveMarketData {
+    current_price: number | null;
+    last_updated: string | null;
+    historical_price_data?: HistoricalPriceDataPoint[];
+    technical_analysis: TechnicalAnalysis;
+}
+
+export interface HistoricalFinancials {
+    eps: number | null;
+    book_value_per_share: number | null;
+    total_debt: number | null;
+    total_equity: number | null;
+    pe_ratio?: number | null;
+    pb_ratio?: number | null;
+    debt_to_equity_ratio?: number | null;
+    roe?: number | null;
+    annual_income_statement?: FinancialStatement;
+    quarterly_income_statement?: FinancialStatement;
+    annual_balance_sheet?: FinancialStatement;
+    quarterly_balance_sheet?: FinancialStatement;
+    annual_cash_flow?: FinancialStatement;
+    quarterly_cash_flow?: FinancialStatement;
 }
 
 
@@ -355,7 +375,7 @@ export interface User {
 export interface ExecutionStep {
   id: number;
   timestamp: string;
-  agentKey: AgentKey | 'financial' | 'data_extractor' | 'chief' | 'local' | 'data_and_technicals';
+  agentKey: AgentKey | 'financial' | 'data_extractor' | 'chief' | 'local' | 'live_market_data' | 'historical_financials';
   stepName: string;
   status: 'running' | 'complete' | 'error' | 'paused';
   input?: string;

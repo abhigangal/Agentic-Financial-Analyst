@@ -1,14 +1,17 @@
 
 
+
+
 import { GoogleGenAI } from "@google/genai";
 import { StockCategory, MarketConfig, Expert } from '../../types';
 
 // This logic is moved from geminiService.ts and adapted for this specific market.
-const validateScreenerInSymbol = async (symbol: string): Promise<boolean> => {
+const validateYahooInSymbol = async (symbol: string): Promise<boolean> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const urlToCheck = `https://www.screener.in/company/${symbol}/`;
-    const contents = `URL: ${urlToCheck}. Is this a valid, public, and working company page on screener.in? Answer ONLY with "YES" or "NO".`;
+    // Assume symbol is already correctly formatted (e.g., ends with .NS)
+    const urlToCheck = `https://finance.yahoo.com/quote/${symbol.toUpperCase()}`;
+    const contents = `URL: ${urlToCheck}. Is this a valid Yahoo Finance page for a publicly traded stock? Answer ONLY "YES" or "NO".`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -21,7 +24,7 @@ const validateScreenerInSymbol = async (symbol: string): Promise<boolean> => {
 
     return response.text.trim().toUpperCase().startsWith('YES');
   } catch (error) {
-    console.error(`Error validating symbol ${symbol} on screener.in:`, error);
+    console.error(`Error validating symbol ${symbol} on Yahoo Finance:`, error);
     return false;
   }
 };
@@ -81,7 +84,7 @@ const experts: Expert[] = [
 const stockCategories: StockCategory[] = [
   {
     "name": "Banking",
-    "symbols": ["HDFCBANK", "ICICIBANK", "KOTAKBANK", "AXISBANK", "INDUSINDBK", "IDFCFIRSTB", "FEDERALBNK", "AUBANK", "BANDHANBNK", "RBLBANK", "YESBANK", "KTKBANK"],
+    "symbols": ["HDFCBANK.NS", "ICICIBANK.NS", "KOTAKBANK.NS", "AXISBANK.NS", "INDUSINDBK.NS", "IDFCFIRSTB.NS", "FEDERALBNK.NS", "AUBANK.NS", "BANDHANBNK.NS", "RBLBANK.NS", "YESBANK.NS", "KTKBANK.NS"],
     "description": "This category includes private sector banks providing a wide range of financial services, including retail banking, corporate banking, investment banking, and wealth management.",
     "key_influencers": [
       "RBI Monetary Policy (interest rates, repo rate)",
@@ -93,7 +96,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "PSU Banks",
-    "symbols": ["SBIN", "BANKBARODA", "PNB", "CANBK", "UNIONBANK", "INDIANB", "BANKINDIA", "IOB", "CENTRALBK", "UCOBANK"],
+    "symbols": ["SBIN.NS", "BANKBARODA.NS", "PNB.NS", "CANBK.NS", "UNIONBANK.NS", "INDIANB.NS", "BANKINDIA.NS", "IOB.NS", "CENTRALBK.NS", "UCOBANK.NS"],
     "description": "Public Sector Undertaking (PSU) Banks are majority-owned by the Government of India, playing a crucial role in financial inclusion and implementing government schemes.",
     "key_influencers": [
       "Government policies and recapitalization efforts",
@@ -105,7 +108,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "IT",
-    "symbols": ["TCS", "INFY", "HCLTECH", "WIPRO", "LTIM", "TECHM", "PERSISTENT", "COFORGE", "MPHASIS", "TATAELXSI", "KPITTECH", "LTTS", "OFSS", "NEWGEN", "HAPPSTMNDS"],
+    "symbols": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "LTIM.NS", "TECHM.NS", "PERSISTENT.NS", "COFORGE.NS", "MPHASIS.NS", "TATAELXSI.NS", "KPITTECH.NS", "LTTS.NS", "OFSS.NS", "NEWGEN.NS", "HAPPSTMNDS.NS"],
     "description": "The Indian IT sector comprises companies providing software development, IT services, consulting, and BPO services globally, a major export-driven industry.",
     "key_influencers": [
       "Global economic growth and IT spending",
@@ -117,7 +120,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Pharma",
-    "symbols": ["SUNPHARMA", "CIPLA", "DRREDDY", "DIVISLAB", "APOLLOHOSP", "LUPIN", "AUROPHARMA", "ALKEM", "BIOCON", "TORNTPHARM", "GLENMARK", "ZYDUSLIFE"],
+    "symbols": ["SUNPHARMA.NS", "CIPLA.NS", "DRREDDY.NS", "DIVISLAB.NS", "APOLLOHOSP.NS", "LUPIN.NS", "AUROPHARMA.NS", "ALKEM.NS", "BIOCON.NS", "TORNTPHARM.NS", "GLENMARK.NS", "ZYDUSLIFE.NS"],
     "description": "This sector includes companies engaged in the research, development, manufacturing, and marketing of pharmaceutical drugs and healthcare products, both for domestic and international markets.",
     "key_influencers": [
       "Drug discovery and R&D success",
@@ -129,7 +132,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "FMCG",
-    "symbols": ["HINDUNILVR", "ITC", "NESTLEIND", "BRITANNIA", "DABUR", "GODREJCP", "MARICO", "COLPAL", "UBL", "PGHH", "EMAMILTD", "VBL", "BAJAJCON"],
+    "symbols": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "DABUR.NS", "GODREJCP.NS", "MARICO.NS", "COLPAL.NS", "UBL.NS", "PGHH.NS", "EMAMILTD.NS", "VBL.NS", "BAJAJCON.NS"],
     "description": "Fast-Moving Consumer Goods (FMCG) companies produce and market non-durable goods that are frequently purchased by consumers, such as food, beverages, personal care, and household products.",
     "key_influencers": [
       "Consumer spending and disposable income",
@@ -141,7 +144,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Auto",
-    "symbols": ["MARUTI", "TATAMOTORS", "M&M", "BAJAJ-AUTO", "HEROMOTOCO", "EICHERMOT", "TVSMOTOR", "ASHOKLEY", "BOSCHLTD", "BHARATFORG", "SONACOMS", "MOTHERSUMI", "ATULAUTO"],
+    "symbols": ["MARUTI.NS", "TATAMOTORS.NS", "M&M.NS", "BAJAJ-AUTO.NS", "HEROMOTOCO.NS", "EICHERMOT.NS", "TVSMOTOR.NS", "ASHOKLEY.NS", "BOSCHLTD.NS", "BHARATFORG.NS", "SONACOMS.NS", "MOTHERSUMI.NS", "ATULAUTO.NS"],
     "description": "The Automotive sector includes manufacturers of passenger vehicles, commercial vehicles, two-wheelers, and auto components, catering to both domestic and export markets.",
     "key_influencers": [
       "Economic growth and consumer sentiment",
@@ -153,7 +156,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Energy",
-    "symbols": ["RELIANCE", "ADANIENT", "ADANIGREEN", "TATAPOWER", "NTPC", "POWERGRID", "ONGC", "COALINDIA", "ADANIPORTS", "GAIL", "IEX", "BPCL", "IOC", "HAL", "INOXWIND"],
+    "symbols": ["RELIANCE.NS", "ADANIENT.NS", "ADANIGREEN.NS", "TATAPOWER.NS", "NTPC.NS", "POWERGRID.NS", "ONGC.NS", "COALINDIA.NS", "ADANIPORTS.NS", "GAIL.NS", "IEX.NS", "BPCL.NS", "IOC.NS", "HAL.NS", "INOXWIND.NS"],
     "description": "This sector encompasses companies involved in exploration, production, refining, distribution of oil & gas, coal mining, power generation, transmission, and renewable energy.",
     "key_influencers": [
       "Global crude oil and commodity prices",
@@ -165,7 +168,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Metal",
-    "symbols": ["TATASTEEL", "JSWSTEEL", "HINDALCO", "VEDL", "JINDALSTEL", "SAIL", "HINDZINC", "NMDC", "APLAPOLLO"],
+    "symbols": ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "VEDL.NS", "JINDALSTEL.NS", "SAIL.NS", "HINDZINC.NS", "NMDC.NS", "APLAPOLLO.NS"],
     "description": "The Metal sector comprises companies involved in mining, processing, and manufacturing of various metals like steel, aluminum, copper, and zinc.",
     "key_influencers": [
       "Global commodity prices (iron ore, coal, base metals)",
@@ -177,7 +180,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Fin Service",
-    "symbols": ["BAJFINANCE", "BAJAJFINSV", "JIOFIN", "CHOLAFIN", "SBICARD", "MUTHOOTFIN", "ICICIGI", "BAJAJHLDNG", "HDFCAMC", "ANGELONE", "CDSL", "MCX", "CAMS", "POLICYBZR", "PEL", "BSE"],
+    "symbols": ["BAJFINANCE.NS", "BAJAJFINSV.NS", "JIOFIN.NS", "CHOLAFIN.NS", "SBICARD.NS", "MUTHOOTFIN.NS", "ICICIGI.NS", "BAJAJHLDNG.NS", "HDFCAMC.NS", "ANGELONE.NS", "CDSL.NS", "MCX.NS", "CAMS.NS", "POLICYBZR.NS", "PEL.NS", "BSE.NS"],
     "description": "This broad sector includes non-banking financial companies (NBFCs), housing finance, asset management companies, broking, exchanges, and other financial intermediaries.",
     "key_influencers": [
       "RBI policies and interest rate movements",
@@ -189,7 +192,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Insurance",
-    "symbols": ["HDFCLIFE", "SBILIFE", "ICICIPRULI", "BAJAJFINSV", "ICICIGI", "NIACL", "GICRE", "NEWINDIA", "STARHEALTH"],
+    "symbols": ["HDFCLIFE.NS", "SBILIFE.NS", "ICICIPRULI.NS", "BAJAJFINSV.NS", "ICICIGI.NS", "NIACL.NS", "GICRE.NS", "NEWINDIA.NS", "STARHEALTH.NS"],
     "description": "Companies offering life, health, and general insurance products, generating revenue from premiums and investments. This sector benefits from rising awareness and increasing disposable incomes.",
     "key_influencers": [
       "Regulatory environment (IRDAI norms, solvency ratios)",
@@ -201,7 +204,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Realty",
-    "symbols": ["DLF", "GODREJPROP", "OBEROIRLTY", "PHOENIXLTD", "PRESTIGE", "LODHA", "BRIGADE", "SOBHA", "MAHLIFE"],
+    "symbols": ["DLF.NS", "GODREJPROP.NS", "OBEROIRLTY.NS", "PHOENIXLTD.NS", "PRESTIGE.NS", "LODHA.NS", "BRIGADE.NS", "SOBHA.NS", "MAHLIFE.NS"],
     "description": "Real estate companies involved in property development, construction, and management of residential, commercial, and retail projects.",
     "key_influencers": [
       "Interest rates and home loan availability",
@@ -213,7 +216,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Chemicals",
-    "symbols": ["PIDILITIND", "SRF", "UPL", "ASIANPAINT", "BERGEPAINT", "DEEPAKNTR", "AARTIIND", "VINATIORGA", "SOLARINDS", "PIIND", "ATUL", "GUJFLUORO"],
+    "symbols": ["PIDILITIND.NS", "SRF.NS", "UPL.NS", "ASIANPAINT.NS", "BERGEPAINT.NS", "DEEPAKNTR.NS", "AARTIIND.NS", "VINATIORGA.NS", "SOLARINDS.NS", "PIIND.NS", "ATUL.NS", "GUJFLUORO.NS"],
     "description": "Manufacturers of specialty chemicals, petrochemicals, agrochemicals, and other industrial chemicals used as raw materials across various industries.",
     "key_influencers": [
       "Raw material prices (crude oil derivatives)",
@@ -225,7 +228,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Infrastructure",
-    "symbols": ["LT", "ADANIPORTS", "GMRINFRA", "IRCTC", "ULTRACEMCO", "GRASIM", "SIEMENS", "ABB", "IRFC", "NCC", "PNCINFRA", "KEC"],
+    "symbols": ["LT.NS", "ADANIPORTS.NS", "GMRINFRA.NS", "IRCTC.NS", "ULTRACEMCO.NS", "GRASIM.NS", "SIEMENS.NS", "ABB.NS", "IRFC.NS", "NCC.NS", "PNCINFRA.NS", "KEC.NS"],
     "description": "Companies involved in the development and maintenance of essential public facilities like roads, bridges, railways, ports, airports, and power plants. (Note: Some symbols overlap with Energy/Cement as they are diversified conglomerates)",
     "key_influencers": [
       "Government spending and infrastructure project pipeline",
@@ -237,7 +240,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Consumer Durables",
-    "symbols": ["TITAN", "HAVELLS", "VOLTAS", "DIXON", "WHIRLPOOL", "CROMPTON", "RELAXO", "BLUESTAR", "SYMPHONY"],
+    "symbols": ["TITAN.NS", "HAVELLS.NS", "VOLTAS.NS", "DIXON.NS", "WHIRLPOOL.NS", "CROMPTON.NS", "RELAXO.NS", "BLUESTAR.NS", "SYMPHONY.NS"],
     "description": "Manufacturers of long-lasting goods for household use, such as home appliances, electronics, and kitchen equipment, driven by rising disposable incomes and changing lifestyles.",
     "key_influencers": [
       "Consumer discretionary spending and income growth",
@@ -249,7 +252,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Media & Entertainment",
-    "symbols": ["ZEEL", "SUNTV", "PVRINOX", "NETWORK18", "TV18BRDCST", "SAREGAMA", "NAZARA", "DBCORP"],
+    "symbols": ["ZEEL.NS", "SUNTV.NS", "PVRINOX.NS", "NETWORK18.NS", "TV18BRDCST.NS", "SAREGAMA.NS", "NAZARA.NS", "DBCORP.NS"],
     "description": "This sector includes television broadcasting, film production and distribution, streaming services, music, publishing, and advertising.",
     "key_influencers": [
       "Advertising revenue trends (linked to economic health)",
@@ -261,7 +264,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Telecom",
-    "symbols": ["BHARTIARTL", "IDEA", "INDUSTOWER", "TEJASNET", "RAILTEL"],
+    "symbols": ["BHARTIARTL.NS", "IDEA.NS", "INDUSTOWER.NS", "TEJASNET.NS", "RAILTEL.NS"],
     "description": "Companies providing telecommunication services, including mobile, broadband, enterprise solutions, and telecom infrastructure.",
     "key_influencers": [
       "Subscriber growth and data consumption",
@@ -273,7 +276,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Healthcare Services",
-    "symbols": ["APOLLOHOSP", "FORTIS", "MAXHEALTH", "LALPATHLAB", "DRLAL", "METROPOLIS"],
+    "symbols": ["APOLLOHOSP.NS", "FORTIS.NS", "MAXHEALTH.NS", "LALPATHLAB.NS", "DRLAL.NS", "METROPOLIS.NS"],
     "description": "Providers of medical services through hospitals, clinics, diagnostic chains, and health insurance. This sector benefits from increasing awareness, income levels, and a growing need for financial protection.",
     "key_influencers": [
       "Healthcare expenditure and insurance penetration",
@@ -285,7 +288,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Capital Goods",
-    "symbols": ["SIEMENS", "ABB", "CUMMINSIND", "BHEL", "GRAPHITE", "HEG"],
+    "symbols": ["SIEMENS.NS", "ABB.NS", "CUMMINSIND.NS", "BHEL.NS", "GRAPHITE.NS", "HEG.NS"],
     "description": "Companies manufacturing machinery, equipment, and tools used by other industries to produce goods and services. They are crucial for industrial production and infrastructure development.",
     "key_influencers": [
       "Industrial capex (capital expenditure) cycle",
@@ -297,7 +300,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Cement",
-    "symbols": ["ULTRACEMCO", "GRASIM", "SHREECEM", "ACC", "AMBUJACEM", "DALBHARAT"],
+    "symbols": ["ULTRACEMCO.NS", "GRASIM.NS", "SHREECEM.NS", "ACC.NS", "AMBUJACEM.NS", "DALBHARAT.NS"],
     "description": "Producers and distributors of cement, a fundamental component in concrete, essential for construction and infrastructure projects.",
     "key_influencers": [
       "Construction activity and infrastructure spending",
@@ -309,7 +312,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Textiles",
-    "symbols": ["ARVIND", "RELIANCE", "PAGEIND", "KAJARIACER", "WELSPUNIND", "TRIDENT", "ABFRL"],
+    "symbols": ["ARVIND.NS", "RELIANCE.NS", "PAGEIND.NS", "KAJARIACER.NS", "WELSPUNIND.NS", "TRIDENT.NS", "ABFRL.NS"],
     "description": "Companies involved in textile manufacturing, apparel production, and home furnishings. (Note: Reliance is a conglomerate with textile interests).",
     "key_influencers": [
       "Consumer fashion trends and discretionary spending",
@@ -321,7 +324,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Logistics",
-    "symbols": ["ALLCARGO", "MAHLOG", "CONCOR", "VRL", "GATI", "DELHIVERY"],
+    "symbols": ["ALLCARGO.NS", "MAHLOG.NS", "CONCOR.NS", "VRL.NS", "GATI.NS", "DELHIVERY.NS"],
     "description": "Providers of services such as transportation, warehousing, freight forwarding, and supply chain solutions, crucial for the seamless movement of goods.",
     "key_influencers": [
       "Economic growth and industrial output",
@@ -333,7 +336,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Utilities",
-    "symbols": ["NTPC", "POWERGRID", "GAIL", "ADANITRANS", "JSWENERGY"],
+    "symbols": ["NTPC.NS", "POWERGRID.NS", "GAIL.NS", "ADANITRANS.NS", "JSWENERGY.NS"],
     "description": "Companies involved in essential services like power generation, transmission, distribution, gas distribution, and water utilities. Often characterized by stable demand and regulatory oversight.",
     "key_influencers": [
       "Government power and energy policies",
@@ -345,7 +348,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Construction Materials",
-    "symbols": ["ASIANPAINT", "PIDILITIND", "CERA", "HSIL", "KAJARIACER"],
+    "symbols": ["ASIANPAINT.NS", "PIDILITIND.NS", "CERA.NS", "HSIL.NS", "KAJARIACER.NS"],
     "description": "Producers of construction and building materials other than cement, such as paints, adhesives, ceramics, and sanitaryware.",
     "key_influencers": [
       "Real estate and construction sector growth",
@@ -357,7 +360,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Hotels & Leisure",
-    "symbols": ["INDIANHOTEL", "EIH", "CHALET", "TAJGVK", "LEMONTREE", "BLISSGVS", "EASEMYTRIP"],
+    "symbols": ["INDIANHOTEL.NS", "EIH.NS", "CHALET.NS", "TAJGVK.NS", "LEMONTREE.NS", "BLISSGVS.NS", "EASEMYTRIP.NS"],
     "description": "Companies operating hotels, resorts, and providing other hospitality and leisure services, benefiting from business and tourism travel.",
     "key_influencers": [
       "Economic growth and discretionary spending",
@@ -370,7 +373,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Education",
-    "symbols": ["CAREERP", "CLEDUCATE"],
+    "symbols": ["CAREERP.NS", "CLEDUCATE.NS"],
     "description": "Companies providing educational services, including test preparation, vocational training, and online learning platforms.",
     "key_influencers": [
       "Demographics and demand for quality education",
@@ -382,7 +385,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Defence",
-    "symbols": ["HAL", "BEL", "BDL", "COCHINSHIP"],
+    "symbols": ["HAL.NS", "BEL.NS", "BDL.NS", "COCHINSHIP.NS"],
     "description": "Companies manufacturing defense equipment, aerospace technology, and providing services for the armed forces, largely driven by government contracts.",
     "key_influencers": [
       "Government defense budget and procurement policies",
@@ -394,7 +397,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Fertilizers & Pesticides",
-    "symbols": ["FACT", "GNFC", "CHAMBLFERT", "DEEPAKFERT", "ZUARIAGRO", "RALLIS"],
+    "symbols": ["FACT.NS", "GNFC.NS", "CHAMBLFERT.NS", "DEEPAKFERT.NS", "ZUARIAGRO.NS", "RALLIS.NS"],
     "description": "Manufacturers of agricultural inputs like fertilizers and pesticides, crucial for crop yield and food production.",
     "key_influencers": [
       "Monsoon patterns and agricultural output",
@@ -407,7 +410,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Aviation",
-    "symbols": ["INDIGO", "SPICEJET"],
+    "symbols": ["INDIGO.NS", "SPICEJET.NS"],
     "description": "Airlines providing passenger and cargo air transport services, a highly competitive and cyclical industry.",
     "key_influencers": [
       "Aviation Turbine Fuel (ATF) prices",
@@ -419,7 +422,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Jewellery & Watch",
-    "symbols": ["TITAN", "KALYANKJIL", "RAJESHEXPO"],
+    "symbols": ["TITAN.NS", "KALYANKJIL.NS", "RAJESHEXPO.NS"],
     "description": "Companies engaged in the manufacturing and retail of jewellery, watches, and other luxury accessories.",
     "key_influencers": [
       "Gold prices and consumer demand during wedding/festival seasons",
@@ -434,9 +437,9 @@ const stockCategories: StockCategory[] = [
 export const inMarketConfig: MarketConfig = {
     id: 'IN',
     name: 'India',
-    screenerName: 'Screener.in',
-    screenerUrlTemplate: 'https://www.screener.in/company/{symbol}/',
-    validateSymbol: validateScreenerInSymbol,
+    screenerName: 'Yahoo Finance',
+    screenerUrlTemplate: 'https://finance.yahoo.com/quote/{symbol}',
+    validateSymbol: validateYahooInSymbol,
     stockCategories: stockCategories,
     experts: experts,
     currencySymbol: '₹',

@@ -1,5 +1,7 @@
 
 
+
+
 import { GoogleGenAI } from "@google/genai";
 import { StockCategory, MarketConfig } from '../../types';
 
@@ -7,9 +9,8 @@ import { StockCategory, MarketConfig } from '../../types';
 const validateBelfastSymbol = async (symbol: string): Promise<boolean> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // LSE/AIM symbols often end in .L
-    const symbolWithSuffix = symbol.toUpperCase().endsWith('.L') ? symbol.toUpperCase() : `${symbol.toUpperCase()}.L`;
-    const urlToCheck = `https://uk.finance.yahoo.com/quote/${symbolWithSuffix}`;
+    // The symbol is now expected to be correctly formatted (e.g., 'KNOS.L') by the calling function.
+    const urlToCheck = `https://uk.finance.yahoo.com/quote/${symbol.toUpperCase()}`;
     const contents = `URL: ${urlToCheck}. Is this a valid Yahoo Finance page for a publicly traded company? Answer ONLY "YES" or "NO".`;
     
     const response = await ai.models.generateContent({

@@ -1,7 +1,14 @@
+
+
+
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, DataAndTechnicalsAnalysis, Snapshot, QuantitativeAnalysis } from './types';
-import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getDataAndTechnicalsAnalysis, getContrarianAnalysis, getQuantitativeAnalysis } from './services/geminiService';
+// FIX: Import Snapshot and updated data types
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, HistoricalFinancials, LiveMarketData, QuantitativeAnalysis, Snapshot } from './types';
+// FIX: Use separate service calls for market data and historical financials
+import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getContrarianAnalysis, getQuantitativeAnalysis, getLiveMarketData, getHistoricalFinancials } from './services/geminiService';
 import { generateAnalysisPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
 import { Breadcrumbs } from './components/Breadcrumbs';
@@ -106,7 +113,8 @@ const App: React.FC = () => {
     contrarian: initialAgentStatus,
     quantitative: initialAgentStatus,
     chief: initialAgentStatus,
-    data_and_technicals: initialAgentStatus,
+    live_market_data: initialAgentStatus,
+    historical_financials: initialAgentStatus,
   });
 
   // Market State
@@ -199,7 +207,7 @@ const App: React.FC = () => {
     setAgentStatuses(prev => ({ ...prev, [agent]: { ...prev[agent], ...status } }));
   };
   
-  const addExecutionLog = (step: Omit<ExecutionStep, 'id' | 'timestamp'>) => {
+  const addExecutionLog = (step: Omit<ExecutionStep, 'id' | 'timestamp'>): number => {
     const newStep: ExecutionStep = {
         id: Date.now() + Math.random(),
         timestamp: new Date().toISOString(),
@@ -258,26 +266,31 @@ const App: React.FC = () => {
   }, [activeMarketConfig.stockCategories, customStockList]);
   
   const agentRunner = useCallback(async <T,>(
-        agentKey: AgentKey | 'data_and_technicals' | 'chief' | 'financial' | 'local',
+        agentKey: keyof typeof agentStatuses | 'local',
         stepName: string,
         serviceCall: () => Promise<T>,
         isCached: boolean = false,
         inputToLog?: object | string
     ): Promise<T | null> => {
         const symbol = currentSymbol;
-        if (!symbol) throw new Error("No stock symbol selected.");
+        if (!symbol) {
+            // This should not happen if called correctly, but as a safeguard:
+            console.error("agentRunner called without a currentSymbol.");
+            // To satisfy the return type, we throw an error. The calling code should handle this.
+            throw new Error("No stock symbol selected.");
+        }
         
         setAgentStatus(agentKey as any, { isLoading: true, error: null });
         const logId = addExecutionLog({
-            agentKey: agentKey as any, stepName, status: 'running',
+            agentKey: agentKey as any, stepName: stepName, status: 'running',
             input: inputToLog ? JSON.stringify(inputToLog, null, 2) : undefined
         });
         try {
             let data: T;
-            const cacheKey = `${agentKey}-${symbol}`;
+            const cacheKey = `${String(agentKey)}-${symbol}`;
             const cachedItem = agentCache[cacheKey];
             if (isCached && cachedItem && (Date.now() - cachedItem.timestamp < CACHE_TTL_MS)) {
-                console.log(`[Cache] Using cached ${agentKey} data for ${symbol}.`);
+                console.log(`[Cache] Using cached ${String(agentKey)} data for ${symbol}.`);
                 data = cachedItem.data;
                 updateExecutionLog(logId, { status: 'complete', output: '[FROM CACHE]', sources: (data as any)?.sources, confidence: (data as any)?.confidence_score });
             } else {
@@ -289,11 +302,13 @@ const App: React.FC = () => {
             }
             setAgentStatus(agentKey as any, { isLoading: false });
             return data;
-        } catch (e: any) {
+        } catch (e: unknown) {
             const errorMsg = e instanceof Error ? e.message : "An unknown error occurred.";
             updateExecutionLog(logId, { status: 'error', output: errorMsg });
             setAgentStatus(agentKey as any, { isLoading: false, error: errorMsg });
-            throw new Error(errorMsg);
+            // FIX: Return null on failure to match the function's return signature `Promise<T | null>`.
+            // This allows Promise.allSettled to handle it as a fulfilled promise with a null value.
+            return null;
         }
     }, [agentCache, currentSymbol]);
 
@@ -313,13 +328,14 @@ const App: React.FC = () => {
         financial: initialAgentStatus, esg: initialAgentStatus, macro: initialAgentStatus,
         market_intel: initialAgentStatus, leadership: initialAgentStatus, competitive: initialAgentStatus,
         sector: initialAgentStatus, calendar: initialAgentStatus, contrarian: initialAgentStatus,
-        quantitative: initialAgentStatus, chief: initialAgentStatus, data_and_technicals: initialAgentStatus,
+        quantitative: initialAgentStatus, chief: initialAgentStatus,
+        live_market_data: initialAgentStatus, historical_financials: initialAgentStatus,
     });
     setAnalysisPhase('PLANNING');
     
     const plan = await agentRunner('financial', 'Create Analysis Plan', () => getAnalysisPlan(symbol, activeMarketConfig.name, Object.keys(enabledAgentsConfig).filter(k => enabledAgentsConfig[k as AgentKey]).join(', ')));
     if (!plan) { setAnalysisPhase('ERROR'); return; }
-    setAnalysisPlan(plan as string);
+    setAnalysisPlan(plan);
     setAnalysisPhase('GATHERING');
 
     const dataPromises: Record<string, Promise<any>> = {};
@@ -328,7 +344,8 @@ const App: React.FC = () => {
     const stockCategory = activeMarketConfig.stockCategories.find(cat => cat.symbols.includes(symbol));
     const isBank = stockCategory?.name === 'Banking' || stockCategory?.name === 'PSU Banks';
 
-    dataPromises.dataAndTechnicals = agentRunner('data_and_technicals', 'Extract Financials & Technicals', () => getDataAndTechnicalsAnalysis(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), true);
+    dataPromises.liveMarketData = agentRunner('live_market_data', 'Extract Live Market Data', () => getLiveMarketData(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), false, screenerUrl);
+    dataPromises.historicalFinancials = agentRunner('historical_financials', 'Extract Historical Financials', () => getHistoricalFinancials(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), true, screenerUrl);
 
     if (enabledAgentsConfig.esg) { dataPromises.esg = agentRunner('esg', 'Analyze ESG Profile', () => getEsgAnalysis(symbol, activeMarketConfig.name), true); }
     if (enabledAgentsConfig.macro) { dataPromises.macro = agentRunner('macro', 'Analyze Macroeconomic Trends', () => getMacroAnalysis(symbol, activeMarketConfig.name), true); }
@@ -349,7 +366,7 @@ const App: React.FC = () => {
         const key = dataEntries[index][0];
         if (result.status === 'fulfilled' && result.value) {
             gatheredData[key] = result.value;
-            if (key !== 'dataAndTechnicals') successfulAgents.push(key as AgentKey);
+            if (key !== 'liveMarketData' && key !== 'historicalFinancials') successfulAgents.push(key as AgentKey);
         } else {
             hasFailed = true;
             if (result.status === 'rejected') {
@@ -360,9 +377,31 @@ const App: React.FC = () => {
         }
     });
 
-    const dtAnalysis = gatheredData.dataAndTechnicals as DataAndTechnicalsAnalysis | null;
-    setRawFinancials(dtAnalysis?.raw_financials || null);
-    setTechnicalAnalysis(dtAnalysis?.technical_analysis || null);
+    const localLiveMarketData = gatheredData.liveMarketData as LiveMarketData | null;
+    const localHistoricalFinancials = gatheredData.historicalFinancials as HistoricalFinancials | null;
+    
+    const mergedRawFinancials: RawFinancials | null = (localLiveMarketData || localHistoricalFinancials) ? {
+        current_price: localLiveMarketData?.current_price ?? null,
+        last_updated_from_source: localLiveMarketData?.last_updated,
+        historical_price_data: localLiveMarketData?.historical_price_data,
+        eps: localHistoricalFinancials?.eps ?? null,
+        book_value_per_share: localHistoricalFinancials?.book_value_per_share ?? null,
+        total_debt: localHistoricalFinancials?.total_debt ?? null,
+        total_equity: localHistoricalFinancials?.total_equity ?? null,
+        pe_ratio: localHistoricalFinancials?.pe_ratio,
+        pb_ratio: localHistoricalFinancials?.pb_ratio,
+        debt_to_equity_ratio: localHistoricalFinancials?.debt_to_equity_ratio,
+        roe: localHistoricalFinancials?.roe,
+        annual_income_statement: localHistoricalFinancials?.annual_income_statement,
+        quarterly_income_statement: localHistoricalFinancials?.quarterly_income_statement,
+        annual_balance_sheet: localHistoricalFinancials?.annual_balance_sheet,
+        quarterly_balance_sheet: localHistoricalFinancials?.quarterly_balance_sheet,
+        annual_cash_flow: localHistoricalFinancials?.annual_cash_flow,
+        quarterly_cash_flow: localHistoricalFinancials?.quarterly_cash_flow,
+    } : null;
+
+    setRawFinancials(mergedRawFinancials);
+    setTechnicalAnalysis(localLiveMarketData?.technical_analysis || null);
     setEsgAnalysis(gatheredData.esg || null); setMacroAnalysis(gatheredData.macro || null);
     const localMarketIntel = gatheredData.market_intel as MarketIntelligenceAnalysis | null;
     const localLeadership = gatheredData.leadership as LeadershipAnalysis | null;
@@ -374,36 +413,37 @@ const App: React.FC = () => {
     const logIdVerify = addExecutionLog({ agentKey: 'local', stepName: 'Cross-Validate Financials', status: 'running' });
     await new Promise(resolve => setTimeout(resolve, 300));
     updateExecutionLog(logIdVerify, { status: 'complete', output: 'Cross-validation with external data sources complete.' });
-    const localRawFinancials = dtAnalysis?.raw_financials;
+    
     const metrics: Record<string, CalculatedMetric> = {};
-    if (localRawFinancials) {
-        metrics.debtToEquity = localRawFinancials.debt_to_equity_ratio !== undefined && localRawFinancials.debt_to_equity_ratio !== null
-            ? { value: localRawFinancials.debt_to_equity_ratio, formula: 'Direct from source', inputs: { 'Debt/Eq': localRawFinancials.debt_to_equity_ratio } }
-            : calculator.calculateDebtToEquity(localRawFinancials.total_debt, localRawFinancials.total_equity);
+    if (mergedRawFinancials) {
+        metrics.debtToEquity = mergedRawFinancials.debt_to_equity_ratio !== undefined && mergedRawFinancials.debt_to_equity_ratio !== null
+            ? { value: mergedRawFinancials.debt_to_equity_ratio, formula: 'Direct from source', inputs: { 'Debt/Eq': mergedRawFinancials.debt_to_equity_ratio } }
+            : calculator.calculateDebtToEquity(mergedRawFinancials.total_debt, mergedRawFinancials.total_equity);
 
-        metrics.peRatio = localRawFinancials.pe_ratio !== undefined && localRawFinancials.pe_ratio !== null
-            ? { value: localRawFinancials.pe_ratio, formula: 'Direct from source', inputs: { 'P/E': localRawFinancials.pe_ratio } }
-            : calculator.calculatePERatio(localRawFinancials.current_price, localRawFinancials.eps);
+        metrics.peRatio = mergedRawFinancials.pe_ratio !== undefined && mergedRawFinancials.pe_ratio !== null
+            ? { value: mergedRawFinancials.pe_ratio, formula: 'Direct from source', inputs: { 'P/E': mergedRawFinancials.pe_ratio } }
+            : calculator.calculatePERatio(mergedRawFinancials.current_price, mergedRawFinancials.eps);
 
-        metrics.pbRatio = localRawFinancials.pb_ratio !== undefined && localRawFinancials.pb_ratio !== null
-            ? { value: localRawFinancials.pb_ratio, formula: 'Direct from source', inputs: { 'P/B': localRawFinancials.pb_ratio } }
-            : calculator.calculatePBRatio(localRawFinancials.current_price, localRawFinancials.book_value_per_share);
+        metrics.pbRatio = mergedRawFinancials.pb_ratio !== undefined && mergedRawFinancials.pb_ratio !== null
+            ? { value: mergedRawFinancials.pb_ratio, formula: 'Direct from source', inputs: { 'P/B': mergedRawFinancials.pb_ratio } }
+            : calculator.calculatePBRatio(mergedRawFinancials.current_price, mergedRawFinancials.book_value_per_share);
 
-        metrics.roe = localRawFinancials.roe !== undefined && localRawFinancials.roe !== null
-            ? { value: localRawFinancials.roe, formula: 'Direct from source', inputs: { 'ROE': localRawFinancials.roe } }
-            : calculator.calculateROE(localRawFinancials.eps, localRawFinancials.book_value_per_share);
+        metrics.roe = mergedRawFinancials.roe !== undefined && mergedRawFinancials.roe !== null
+            ? { value: mergedRawFinancials.roe, formula: 'Direct from source', inputs: { 'ROE': mergedRawFinancials.roe } }
+            : calculator.calculateROE(mergedRawFinancials.eps, mergedRawFinancials.book_value_per_share);
     }
     setCalculatedMetrics(metrics);
     
     let localQuantitativeAnalysis: QuantitativeAnalysis | null = null;
-    if (enabledAgentsConfig.quantitative && localRawFinancials?.historical_price_data) {
-        const quantResult = await agentRunner<QuantitativeAnalysis>('quantitative', 'Generate Quantitative Forecast', () => getQuantitativeAnalysis(
-            localRawFinancials.historical_price_data!,
+    if (enabledAgentsConfig.quantitative && mergedRawFinancials?.current_price) {
+        const quantResult = await agentRunner('quantitative', 'Generate Quantitative Forecast', () => getQuantitativeAnalysis(
+            mergedRawFinancials.historical_price_data ?? [],
             localMarketIntel?.sentiment_score ?? null,
-            localLeadership?.management_confidence_score ?? null
-        ), true);
+            localLeadership?.management_confidence_score ?? null,
+            mergedRawFinancials.current_price
+        ), true, { historical_prices: '...omitted...', sentiment: localMarketIntel?.sentiment_score, management_confidence: localLeadership?.management_confidence_score, current_price: mergedRawFinancials.current_price });
         if (quantResult) {
-            localQuantitativeAnalysis = quantResult;
+            localQuantitativeAnalysis = quantResult as QuantitativeAnalysis;
             setQuantitativeAnalysis(localQuantitativeAnalysis);
             successfulAgents.push('quantitative');
         }
@@ -418,17 +458,17 @@ const App: React.FC = () => {
     if (gatheredData.competitive) contextStrings.competitive = getSummaryFromAgentResult('competitive', gatheredData.competitive);
     if (gatheredData.sector) contextStrings.sector = getSummaryFromAgentResult('sector', gatheredData.sector);
     if (gatheredData.calendar) contextStrings.calendar = getSummaryFromAgentResult('calendar', gatheredData.calendar);
-    if (dtAnalysis?.technical_analysis?.summary) contextStrings.technical = dtAnalysis.technical_analysis.summary;
+    if (localLiveMarketData?.technical_analysis?.summary) contextStrings.technical = localLiveMarketData.technical_analysis.summary;
     if (localQuantitativeAnalysis) contextStrings.quantitative = getSummaryFromAgentResult('quantitative', localQuantitativeAnalysis);
 
-    const draftAnalysis = await agentRunner<StockAnalysis>('financial', 'Synthesize Draft Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, localRawFinancials, metrics, ''));
+    const draftAnalysis = await agentRunner('financial', 'Synthesize Draft Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, mergedRawFinancials, metrics, ''));
     if (!draftAnalysis) { setAnalysisPhase('ERROR'); return; }
 
     let localContrarianAnalysis: ContrarianAnalysis | null = null;
     if (enabledAgentsConfig.contrarian) {
-        const contrarianResult = await agentRunner<ContrarianAnalysis>('contrarian', 'Develop Contrarian Bear Case', () => getContrarianAnalysis(draftAnalysis.justification.overall_recommendation, contextStrings), true);
+        const contrarianResult = await agentRunner('contrarian', 'Develop Contrarian Bear Case', () => getContrarianAnalysis((draftAnalysis as StockAnalysis).justification.overall_recommendation, contextStrings), true);
         if (contrarianResult) {
-            localContrarianAnalysis = contrarianResult;
+            localContrarianAnalysis = contrarianResult as ContrarianAnalysis;
             setContrarianAnalysis(localContrarianAnalysis);
             contextStrings.contrarian = getSummaryFromAgentResult('contrarian', contrarianResult);
             successfulAgents.push('contrarian');
@@ -436,35 +476,35 @@ const App: React.FC = () => {
     }
     
     setAnalysisPhase('DEBATING');
-    const critique = await agentRunner<ChiefAnalystCritique>('chief', 'Debate & Critique Draft', () => getChiefAnalystCritique(draftAnalysis.justification.overall_recommendation, contextStrings, successfulAgents));
+    const critique = await agentRunner('chief', 'Debate & Critique Draft', () => getChiefAnalystCritique((draftAnalysis as StockAnalysis).justification.overall_recommendation, contextStrings, successfulAgents));
     if (!critique || hasFailed) {
         if(draftAnalysis) {
-            draftAnalysis.technicalAnalysis = dtAnalysis?.technical_analysis || null;
-            draftAnalysis.contrarianAnalysis = localContrarianAnalysis;
-            draftAnalysis.quantitativeAnalysis = localQuantitativeAnalysis;
+            (draftAnalysis as StockAnalysis).technicalAnalysis = localLiveMarketData?.technical_analysis || null;
+            (draftAnalysis as StockAnalysis).contrarianAnalysis = localContrarianAnalysis;
+            (draftAnalysis as StockAnalysis).quantitativeAnalysis = localQuantitativeAnalysis;
         }
-        setAnalysisResult(draftAnalysis);
+        setAnalysisResult(draftAnalysis as StockAnalysis);
         setAnalysisPhase(hasFailed ? 'PAUSED' : 'COMPLETE');
         if (hasFailed) addExecutionLog({ agentKey: 'local', stepName: 'Analysis Paused', status: 'paused', output: 'One or more intelligence agents failed. Review logs and retry.' });
         return;
     }
-    setChiefAnalystCritique(critique);
+    setChiefAnalystCritique(critique as ChiefAnalystCritique);
 
     setAnalysisPhase('REFINING');
-    const critiquePrompt = `\n\nA chief analyst has reviewed the initial data and raised a critical point: "${critique.conflict_summary}". Your final analysis MUST address this critique directly in the 'overall_recommendation' section.\n`;
+    const critiquePrompt = `\n\nA chief analyst has reviewed the initial data and raised a critical point: "${(critique as ChiefAnalystCritique).conflict_summary}". Your final analysis MUST address this critique directly in the 'overall_recommendation' section.\n`;
     
     setAnalysisPhase('FINALIZING');
-    const finalResult = await agentRunner<StockAnalysis>('financial', 'Finalize Aligned Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, localRawFinancials, metrics, critiquePrompt));
+    const finalResult = await agentRunner('financial', 'Finalize Aligned Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, mergedRawFinancials, metrics, critiquePrompt));
     
     if (finalResult) {
-        finalResult.chiefAnalystCritique = critique;
-        finalResult.technicalAnalysis = dtAnalysis?.technical_analysis || null;
-        finalResult.contrarianAnalysis = localContrarianAnalysis;
-        finalResult.quantitativeAnalysis = localQuantitativeAnalysis;
-        setAnalysisResult(finalResult);
+        (finalResult as StockAnalysis).chiefAnalystCritique = critique as ChiefAnalystCritique;
+        (finalResult as StockAnalysis).technicalAnalysis = localLiveMarketData?.technical_analysis || null;
+        (finalResult as StockAnalysis).contrarianAnalysis = localContrarianAnalysis;
+        (finalResult as StockAnalysis).quantitativeAnalysis = localQuantitativeAnalysis;
+        setAnalysisResult(finalResult as StockAnalysis);
     } else {
-        draftAnalysis.quantitativeAnalysis = localQuantitativeAnalysis;
-        setAnalysisResult(draftAnalysis);
+        (draftAnalysis as StockAnalysis).quantitativeAnalysis = localQuantitativeAnalysis;
+        setAnalysisResult(draftAnalysis as StockAnalysis);
     }
     
     setAnalysisPhase('COMPLETE');
@@ -512,18 +552,33 @@ const App: React.FC = () => {
     setAddError(null);
     setIsAddingStock(true);
     try {
-      const isValid = await activeMarketConfig.validateSymbol(symbol);
-      if (isValid) {
-        const upperSymbol = symbol.toUpperCase();
-        if (!allPredefinedSymbols.includes(upperSymbol)) {
-          setCustomStockList(prev => [...prev, upperSymbol]);
+        let symbolToAdd = symbol.toUpperCase();
+        // Market-specific logic for symbol formatting
+        if (activeMarketConfig.id === 'IN' && !symbolToAdd.endsWith('.NS') && !symbolToAdd.endsWith('.BO')) {
+            symbolToAdd = `${symbolToAdd}.NS`;
         }
-        handleSelectStock(upperSymbol);
-      } else {
-        setAddError(`Symbol '${symbol.toUpperCase()}' not found or is invalid for the ${activeMarketConfig.name} market.`);
-      }
+        if ((activeMarketConfig.id === 'UK' || activeMarketConfig.id === 'BF') && !symbolToAdd.endsWith('.L')) {
+            symbolToAdd = `${symbolToAdd}.L`;
+        }
+
+        const isValid = await activeMarketConfig.validateSymbol(symbolToAdd);
+        if (isValid) {
+            if (!allPredefinedSymbols.includes(symbolToAdd)) {
+                setCustomStockList(prev => [...prev, symbolToAdd]);
+            }
+            handleSelectStock(symbolToAdd);
+        } else {
+            let errorMsg = `Symbol '${symbol.toUpperCase()}' not found or is invalid for the ${activeMarketConfig.name} market.`;
+            if (activeMarketConfig.id === 'IN') {
+                errorMsg += " Try adding '.NS' for NSE stocks.";
+            }
+            if (activeMarketConfig.id === 'UK' || activeMarketConfig.id === 'BF') {
+                errorMsg += " Try adding '.L' for LSE stocks.";
+            }
+            setAddError(errorMsg);
+        }
     } finally {
-      setIsAddingStock(false);
+        setIsAddingStock(false);
     }
   };
 

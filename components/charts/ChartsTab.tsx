@@ -8,17 +8,22 @@ interface ChartsTabProps {
 }
 
 const fundamentalOptions = [
-    { key: 'revenue', label: 'Revenue', statement: 'income_statement', rowLabel: 'Sales', type: 'quarterly' },
-    { key: 'net_income', label: 'Net Profit', statement: 'income_statement', rowLabel: 'Net Profit', type: 'quarterly' },
-    { key: 'eps', label: 'EPS', statement: 'income_statement', rowLabel: 'EPS in Rs', type: 'quarterly' },
-    { key: 'total_assets', label: 'Total Assets', statement: 'balance_sheet', rowLabel: 'Total Assets', type: 'annual' },
-    { key: 'total_equity', label: 'Total Equity', statement: 'balance_sheet', rowLabel: 'Total Liabilities', type: 'annual' }, // Assuming Equity = Assets - Liabilities
+    { key: 'revenue', label: 'Revenue', statement: 'income_statement', rowLabels: ['Sales', 'Revenue'], type: 'quarterly' },
+    { key: 'net_income', label: 'Net Profit', statement: 'income_statement', rowLabels: ['Net Profit', 'Net Income'], type: 'quarterly' },
+    { key: 'eps', label: 'EPS', statement: 'income_statement', rowLabels: ['EPS in Rs', 'Diluted EPS'], type: 'quarterly' },
+    { key: 'total_assets', label: 'Total Assets', statement: 'balance_sheet', rowLabels: ['Total Assets'], type: 'annual' },
+    { key: 'total_equity', label: 'Total Equity', statement: 'balance_sheet', rowLabels: ['Total Equity', 'Stockholder Equity'], type: 'annual' },
 ];
 
-const extractFundamentalData = (statement: FinancialStatement | undefined, rowLabel: string): ChartFundamentalData[] | null => {
+const extractFundamentalData = (statement: FinancialStatement | undefined, rowLabels: string[]): ChartFundamentalData[] | null => {
     if (!statement || !statement.periods || !statement.rows) return null;
 
-    const row = statement.rows.find(r => r.label.toLowerCase().includes(rowLabel.toLowerCase()));
+    let row = null;
+    for (const label of rowLabels) {
+        // Find a row where the label contains one of our target labels (case-insensitive)
+        row = statement.rows.find(r => r.label.toLowerCase().includes(label.toLowerCase()));
+        if (row) break;
+    }
     if (!row) return null;
 
     return statement.periods.map((period, index) => ({
@@ -49,7 +54,7 @@ export const ChartsTab: React.FC<ChartsTabProps> = ({ rawFinancials, quantitativ
         const statementKey = `${selectedFundamental.type}_${selectedFundamental.statement}` as keyof RawFinancials;
         const statement = rawFinancials[statementKey] as FinancialStatement | undefined;
 
-        return extractFundamentalData(statement, selectedFundamental.rowLabel);
+        return extractFundamentalData(statement, selectedFundamental.rowLabels);
 
     }, [rawFinancials, selectedFundamental]);
 

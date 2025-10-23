@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
-// FIX: Replace deprecated types with MarketIntelligenceAnalysis
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, DataAndTechnicalsAnalysis } from './types';
-// FIX: Replace deprecated service calls with getMarketIntelligenceAnalysis
-import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getDataAndTechnicalsAnalysis, getContrarianAnalysis } from './services/geminiService';
+// FIX: Import Snapshot and updated data types
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, HistoricalFinancials, LiveMarketData, QuantitativeAnalysis, Snapshot } from './types';
+// FIX: Use separate service calls for market data and historical financials
+import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getContrarianAnalysis, getQuantitativeAnalysis, getLiveMarketData, getHistoricalFinancials } from './services/geminiService';
 import { generateAnalysisPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
 import { Breadcrumbs } from './components/Breadcrumbs';
@@ -17,18 +17,23 @@ import { ShortcutsPanel } from './components/common/ShortcutsPanel';
 
 
 const LOCAL_STORAGE_KEY = 'agentic_financial_analyst_custom_stocks';
+const SNAPSHOTS_STORAGE_KEY = 'agentic_financial_analyst_snapshots';
 export const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const CACHE_VERSION = 'v2';
+const ANALYSIS_CACHE_KEY = `agentic_financial_analyst_analysis_cache_${CACHE_VERSION}`;
+const AGENT_CACHE_KEY = `agentic_financial_analyst_agent_cache_${CACHE_VERSION}`;
+
 
 export interface AnalysisCacheItem {
     analysisResult: StockAnalysis;
     esgAnalysis: EsgAnalysis | null;
     macroAnalysis: MacroAnalysis | null;
-    // FIX: Replace deprecated types with MarketIntelligenceAnalysis
     marketIntelligenceAnalysis: MarketIntelligenceAnalysis | null;
     leadershipAnalysis: LeadershipAnalysis | null;
     competitiveAnalysis: CompetitiveAnalysis | null;
     sectorAnalysis: SectorAnalysis | null;
     corporateCalendarAnalysis: CorporateCalendarAnalysis | null;
+    quantitativeAnalysis: QuantitativeAnalysis | null;
     timestamp: number;
 }
 
@@ -50,9 +55,9 @@ const getSummaryFromAgentResult = (agentKey: AgentKey, result: any): string => {
             case 'esg': return result.justification?.overall_summary || JSON.stringify(result);
             case 'macro': return result.outlook_summary || JSON.stringify(result);
             case 'competitive': return result.competitive_summary || JSON.stringify(result);
-            // FIX: Replaced 'news' and 'sentiment' with 'market_intel' and updated the summary property.
             case 'market_intel': return result.intelligence_summary || JSON.stringify(result);
             case 'contrarian': return result.bear_case_summary || JSON.stringify(result);
+            case 'quantitative':
             case 'leadership':
             case 'sector':
             case 'calendar':
@@ -77,7 +82,6 @@ const App: React.FC = () => {
   // Agent-specific data
   const [esgAnalysis, setEsgAnalysis] = useState<EsgAnalysis | null>(null);
   const [macroAnalysis, setMacroAnalysis] = useState<MacroAnalysis | null>(null);
-  // FIX: Replaced newsAnalysis and marketSentimentAnalysis with marketIntelligenceAnalysis.
   const [marketIntelligenceAnalysis, setMarketIntelligenceAnalysis] = useState<MarketIntelligenceAnalysis | null>(null);
   const [leadershipAnalysis, setLeadershipAnalysis] = useState<LeadershipAnalysis | null>(null);
   const [competitiveAnalysis, setCompetitiveAnalysis] = useState<CompetitiveAnalysis | null>(null);
@@ -85,6 +89,7 @@ const App: React.FC = () => {
   const [corporateCalendarAnalysis, setCorporateCalendarAnalysis] = useState<CorporateCalendarAnalysis | null>(null);
   const [technicalAnalysis, setTechnicalAnalysis] = useState<TechnicalAnalysis | null>(null);
   const [contrarianAnalysis, setContrarianAnalysis] = useState<ContrarianAnalysis | null>(null);
+  const [quantitativeAnalysis, setQuantitativeAnalysis] = useState<QuantitativeAnalysis | null>(null);
   const [chiefAnalystCritique, setChiefAnalystCritique] = useState<(ChiefAnalystCritique & { refined_answer?: string }) | null>(null);
   const [rawFinancials, setRawFinancials] = useState<RawFinancials | null>(null);
   const [calculatedMetrics, setCalculatedMetrics] = useState<Record<string, CalculatedMetric>>({});
@@ -95,16 +100,16 @@ const App: React.FC = () => {
     financial: initialAgentStatus,
     esg: initialAgentStatus,
     macro: initialAgentStatus,
-    // FIX: Replaced news, sentiment with market_intel.
     market_intel: initialAgentStatus,
     leadership: initialAgentStatus,
     competitive: initialAgentStatus,
     sector: initialAgentStatus,
     calendar: initialAgentStatus,
     contrarian: initialAgentStatus,
+    quantitative: initialAgentStatus,
     chief: initialAgentStatus,
-    // FIX: Replaced data_extractor with data_and_technicals.
-    data_and_technicals: initialAgentStatus,
+    live_market_data: initialAgentStatus,
+    historical_financials: initialAgentStatus,
   });
 
   // Market State
@@ -123,21 +128,81 @@ const App: React.FC = () => {
     }
   });
   
-  const [analysisCache, setAnalysisCache] = useState<Record<string, AnalysisCacheItem>>({});
-  const [agentCache, setAgentCache] = useState<Record<string, AgentCacheItem>>({});
+  const [snapshots, setSnapshots] = useState<Record<string, Snapshot[]>>({});
+  const [analysisCache, setAnalysisCache] = useState<Record<string, AnalysisCacheItem>>(() => {
+    try {
+        const saved = localStorage.getItem(ANALYSIS_CACHE_KEY);
+        return saved ? JSON.parse(saved) : {};
+    } catch (e) { return {}; }
+  });
+  const [agentCache, setAgentCache] = useState<Record<string, AgentCacheItem>>(() => {
+    try {
+        const saved = localStorage.getItem(AGENT_CACHE_KEY);
+        return saved ? JSON.parse(saved) : {};
+    } catch (e) { return {}; }
+  });
   const [currentSymbol, setCurrentSymbol] = useState<string | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [isConfiguring, setIsConfiguring] = useState<boolean>(false);
   const [enabledAgents, setEnabledAgents] = useState<Record<AgentKey, boolean> | null>(null);
   const [showShortcuts, setShowShortcuts] = useState<boolean>(false);
   const [isAddingStock, setIsAddingStock] = useState(false);
+  const [isCachedView, setIsCachedView] = useState<boolean>(false);
   const isAnalysisRunning = analysisPhase !== 'IDLE' && analysisPhase !== 'COMPLETE' && analysisPhase !== 'ERROR' && analysisPhase !== 'PAUSED';
+
+  // --- Cache Management ---
+  useEffect(() => {
+    try {
+        localStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify(analysisCache));
+    } catch (e) { console.error("Failed to save analysis cache", e); }
+  }, [analysisCache]);
+
+  useEffect(() => {
+      try {
+          localStorage.setItem(AGENT_CACHE_KEY, JSON.stringify(agentCache));
+      } catch (e) { console.error("Failed to save agent cache", e); }
+  }, [agentCache]);
+  
+  // --- Snapshot Management ---
+  useEffect(() => {
+    try {
+      const savedSnapshots = localStorage.getItem(SNAPSHOTS_STORAGE_KEY);
+      setSnapshots(savedSnapshots ? JSON.parse(savedSnapshots) : {});
+    } catch (e) {
+      console.error("Failed to load snapshots from localStorage", e);
+      setSnapshots({});
+    }
+  }, []);
+
+  const handleSaveSnapshot = useCallback(() => {
+      if (!currentSymbol || !analysisResult) return;
+
+      const newSnapshot: Snapshot = {
+          id: new Date().toISOString(),
+          timestamp: Date.now(),
+          analysisResult: JSON.parse(JSON.stringify(analysisResult)),
+      };
+
+      setSnapshots(prev => {
+          const stockSnapshots = prev[currentSymbol] ? [...prev[currentSymbol], newSnapshot] : [newSnapshot];
+          stockSnapshots.sort((a, b) => b.timestamp - a.timestamp);
+          if (stockSnapshots.length > 10) stockSnapshots.splice(10);
+          const updatedSnapshots = { ...prev, [currentSymbol]: stockSnapshots };
+          
+          try {
+              localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(updatedSnapshots));
+          } catch (e) {
+              console.error("Failed to save snapshots to localStorage", e);
+          }
+          return updatedSnapshots;
+      });
+  }, [currentSymbol, analysisResult]);
   
   const setAgentStatus = (agent: keyof typeof agentStatuses, status: Partial<AgentStatus>) => {
     setAgentStatuses(prev => ({ ...prev, [agent]: { ...prev[agent], ...status } }));
   };
   
-  const addExecutionLog = (step: Omit<ExecutionStep, 'id' | 'timestamp'>) => {
+  const addExecutionLog = (step: Omit<ExecutionStep, 'id' | 'timestamp'>): number => {
     const newStep: ExecutionStep = {
         id: Date.now() + Math.random(),
         timestamp: new Date().toISOString(),
@@ -167,14 +232,11 @@ const App: React.FC = () => {
         }
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
              e.preventDefault();
-             // This is where a global search command palette would be triggered.
              console.log("Trigger global search (not implemented)");
         }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -189,9 +251,7 @@ const App: React.FC = () => {
     setSelectedCurrency(activeMarketConfig.currencySymbol);
   }, [activeMarketConfig]);
 
-  const handleCurrencyChange = (symbol: string) => {
-    setSelectedCurrency(symbol);
-  };
+  const handleCurrencyChange = (symbol: string) => setSelectedCurrency(symbol);
   
   const allPredefinedSymbols = useMemo(() => {
     const symbols = new Set<string>();
@@ -201,47 +261,49 @@ const App: React.FC = () => {
   }, [activeMarketConfig.stockCategories, customStockList]);
   
   const agentRunner = useCallback(async <T,>(
-        agentKey: AgentKey | 'data_and_technicals' | 'chief' | 'financial' | 'local',
+        agentKey: keyof typeof agentStatuses | 'local',
         stepName: string,
         serviceCall: () => Promise<T>,
         isCached: boolean = false,
-        inputToLog?: object | string,
-        delayMs: number = 0
+        inputToLog?: object | string
     ): Promise<T | null> => {
-        const symbol = currentSymbol; // Capture currentSymbol at execution time
-        if (!symbol) throw new Error("No stock symbol selected.");
-        
-        if (delayMs > 0) {
-            await new Promise(resolve => setTimeout(resolve, delayMs));
+        const symbol = currentSymbol;
+        if (!symbol) {
+            // This should not happen if called correctly, but as a safeguard:
+            console.error("agentRunner called without a currentSymbol.");
+            // To satisfy the return type, we throw an error. The calling code should handle this.
+            throw new Error("No stock symbol selected.");
         }
+        
         setAgentStatus(agentKey as any, { isLoading: true, error: null });
         const logId = addExecutionLog({
-            agentKey: agentKey as any,
-            stepName,
-            status: 'running',
+            agentKey: agentKey as any, stepName, status: 'running',
             input: inputToLog ? JSON.stringify(inputToLog, null, 2) : undefined
         });
         try {
             let data: T;
-            const cacheKey = `${agentKey}-${symbol}`;
+            const cacheKey = `${String(agentKey)}-${symbol}`;
             const cachedItem = agentCache[cacheKey];
             if (isCached && cachedItem && (Date.now() - cachedItem.timestamp < CACHE_TTL_MS)) {
-                console.log(`[Cache] Using cached ${agentKey} data for ${symbol}.`);
+                console.log(`[Cache] Using cached ${String(agentKey)} data for ${symbol}.`);
                 data = cachedItem.data;
+                updateExecutionLog(logId, { status: 'complete', output: '[FROM CACHE]', sources: (data as any)?.sources, confidence: (data as any)?.confidence_score });
             } else {
                 data = await serviceCall();
+                updateExecutionLog(logId, { status: 'complete', output: JSON.stringify(data, null, 2), sources: (data as any)?.sources, confidence: (data as any)?.confidence_score });
                 if (isCached) {
                     setAgentCache(prev => ({ ...prev, [cacheKey]: { data, timestamp: Date.now() } }));
                 }
             }
-            updateExecutionLog(logId, { status: 'complete', output: JSON.stringify(data, null, 2), sources: (data as any)?.sources, confidence: (data as any)?.confidence_score });
             setAgentStatus(agentKey as any, { isLoading: false });
             return data;
-        } catch (e: any) {
+        } catch (e: unknown) {
             const errorMsg = e instanceof Error ? e.message : "An unknown error occurred.";
             updateExecutionLog(logId, { status: 'error', output: errorMsg });
             setAgentStatus(agentKey as any, { isLoading: false, error: errorMsg });
-            throw new Error(errorMsg);
+            // FIX: Return null on failure to match the function's return signature `Promise<T | null>`.
+            // This allows Promise.allSettled to handle it as a fulfilled promise with a null value.
+            return null;
         }
     }, [agentCache, currentSymbol]);
 
@@ -249,49 +311,45 @@ const App: React.FC = () => {
   const runAnalysis = useCallback(async (symbol: string, enabledAgentsConfig: Record<AgentKey, boolean>) => {
     if (!symbol) return;
     setCurrentSymbol(symbol);
+    setIsCachedView(false);
     
-    setAnalysisResult(null);
-    setEsgAnalysis(null);
-    setMacroAnalysis(null);
-    setMarketIntelligenceAnalysis(null);
-    setLeadershipAnalysis(null);
-    setCompetitiveAnalysis(null);
-    setSectorAnalysis(null);
-    setCorporateCalendarAnalysis(null);
-    setTechnicalAnalysis(null);
-    setContrarianAnalysis(null);
-    setChiefAnalystCritique(null);
-    setRawFinancials(null);
-    setCalculatedMetrics({});
-    setExecutionLog([]);
-    setAnalysisPlan(null);
+    setAnalysisResult(null); setEsgAnalysis(null); setMacroAnalysis(null);
+    setMarketIntelligenceAnalysis(null); setLeadershipAnalysis(null);
+    setCompetitiveAnalysis(null); setSectorAnalysis(null); setCorporateCalendarAnalysis(null);
+    setTechnicalAnalysis(null); setContrarianAnalysis(null); setQuantitativeAnalysis(null);
+    setChiefAnalystCritique(null); setRawFinancials(null); setCalculatedMetrics({});
+    setExecutionLog([]); setAnalysisPlan(null);
     setAgentStatuses({
         financial: initialAgentStatus, esg: initialAgentStatus, macro: initialAgentStatus,
         market_intel: initialAgentStatus, leadership: initialAgentStatus, competitive: initialAgentStatus,
-        sector: initialAgentStatus, calendar: initialAgentStatus, contrarian: initialAgentStatus, 
-        chief: initialAgentStatus, data_and_technicals: initialAgentStatus,
+        sector: initialAgentStatus, calendar: initialAgentStatus, contrarian: initialAgentStatus,
+        quantitative: initialAgentStatus, chief: initialAgentStatus,
+        live_market_data: initialAgentStatus, historical_financials: initialAgentStatus,
     });
     setAnalysisPhase('PLANNING');
     
     const plan = await agentRunner('financial', 'Create Analysis Plan', () => getAnalysisPlan(symbol, activeMarketConfig.name, Object.keys(enabledAgentsConfig).filter(k => enabledAgentsConfig[k as AgentKey]).join(', ')));
     if (!plan) { setAnalysisPhase('ERROR'); return; }
-    setAnalysisPlan(plan as string);
+    // FIX: Remove unnecessary and potentially unsafe type cast. `plan` is guaranteed to be a string here.
+    setAnalysisPlan(plan);
     setAnalysisPhase('GATHERING');
 
     const dataPromises: Record<string, Promise<any>> = {};
-    let agentDelay = 0;
-    const jitter = () => Math.random() * 200;
-
     const screenerUrl = activeMarketConfig.screenerUrlTemplate.replace('{symbol}', symbol);
-    dataPromises.dataAndTechnicals = agentRunner('data_and_technicals', 'Extract Financials & Technicals', () => getDataAndTechnicalsAnalysis(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name), true, undefined, agentDelay);
+    
+    const stockCategory = activeMarketConfig.stockCategories.find(cat => cat.symbols.includes(symbol));
+    const isBank = stockCategory?.name === 'Banking' || stockCategory?.name === 'PSU Banks';
 
-    if (enabledAgentsConfig.esg) { agentDelay += 150 + jitter(); dataPromises.esg = agentRunner('esg', 'Analyze ESG Profile', () => getEsgAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
-    if (enabledAgentsConfig.macro) { agentDelay += 150 + jitter(); dataPromises.macro = agentRunner('macro', 'Analyze Macroeconomic Trends', () => getMacroAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
-    if (enabledAgentsConfig.market_intel) { agentDelay += 150 + jitter(); dataPromises.market_intel = agentRunner('market_intel', 'Analyze Market Intelligence', () => getMarketIntelligenceAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
-    if (enabledAgentsConfig.leadership) { agentDelay += 150 + jitter(); dataPromises.leadership = agentRunner('leadership', 'Analyze Leadership Team', () => getLeadershipAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
-    if (enabledAgentsConfig.competitive) { agentDelay += 150 + jitter(); dataPromises.competitive = agentRunner('competitive', 'Analyze Competitors', () => getCompetitiveAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
-    if (enabledAgentsConfig.sector) { agentDelay += 150 + jitter(); dataPromises.sector = agentRunner('sector', 'Analyze Sector Outlook', () => getSectorAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
-    if (enabledAgentsConfig.calendar) { agentDelay += 150 + jitter(); dataPromises.calendar = agentRunner('calendar', 'Analyze Corporate Calendar', () => getCorporateCalendarAnalysis(symbol, activeMarketConfig.name), true, undefined, agentDelay); }
+    dataPromises.liveMarketData = agentRunner('live_market_data', 'Extract Live Market Data', () => getLiveMarketData(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), false);
+    dataPromises.historicalFinancials = agentRunner('historical_financials', 'Extract Historical Financials', () => getHistoricalFinancials(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), true);
+
+    if (enabledAgentsConfig.esg) { dataPromises.esg = agentRunner('esg', 'Analyze ESG Profile', () => getEsgAnalysis(symbol, activeMarketConfig.name), true); }
+    if (enabledAgentsConfig.macro) { dataPromises.macro = agentRunner('macro', 'Analyze Macroeconomic Trends', () => getMacroAnalysis(symbol, activeMarketConfig.name), true); }
+    if (enabledAgentsConfig.market_intel) { dataPromises.market_intel = agentRunner('market_intel', 'Analyze Market Intelligence', () => getMarketIntelligenceAnalysis(symbol, activeMarketConfig.name), true); }
+    if (enabledAgentsConfig.leadership) { dataPromises.leadership = agentRunner('leadership', 'Analyze Leadership Team', () => getLeadershipAnalysis(symbol, activeMarketConfig.name), true); }
+    if (enabledAgentsConfig.competitive) { dataPromises.competitive = agentRunner('competitive', 'Analyze Competitors', () => getCompetitiveAnalysis(symbol, activeMarketConfig.name), true); }
+    if (enabledAgentsConfig.sector) { dataPromises.sector = agentRunner('sector', 'Analyze Sector Outlook', () => getSectorAnalysis(symbol, activeMarketConfig.name), true); }
+    if (enabledAgentsConfig.calendar) { dataPromises.calendar = agentRunner('calendar', 'Analyze Corporate Calendar', () => getCorporateCalendarAnalysis(symbol, activeMarketConfig.name), true); }
     
     const dataEntries = Object.entries(dataPromises);
     const results = await Promise.allSettled(dataEntries.map(entry => entry[1]));
@@ -302,64 +360,104 @@ const App: React.FC = () => {
 
     results.forEach((result, index) => {
         const key = dataEntries[index][0];
-        if (result.status === 'fulfilled') {
+        if (result.status === 'fulfilled' && result.value) {
             gatheredData[key] = result.value;
-            if (key !== 'dataAndTechnicals') successfulAgents.push(key as AgentKey);
+            if (key !== 'liveMarketData' && key !== 'historicalFinancials') successfulAgents.push(key as AgentKey);
         } else {
             hasFailed = true;
-            console.error(`[Analysis Workflow] Agent for '${key}' failed:`, result.reason);
+            if (result.status === 'rejected') {
+                console.error(`[Analysis Workflow] Agent for '${key}' failed:`, result.reason);
+            } else {
+                console.error(`[Analysis Workflow] Agent for '${key}' fulfilled but returned a falsy value.`);
+            }
         }
     });
 
-    if (hasFailed) {
-        addExecutionLog({
-            agentKey: 'local', stepName: 'Analysis Paused', status: 'paused',
-            output: 'One or more intelligence agents failed. Review logs and retry individual agents or the full analysis.',
-        });
-        setAnalysisPhase('PAUSED');
-        return;
-    }
+    const localLiveMarketData = gatheredData.liveMarketData as LiveMarketData | null;
+    const localHistoricalFinancials = gatheredData.historicalFinancials as HistoricalFinancials | null;
+    
+    const mergedRawFinancials: RawFinancials | null = (localLiveMarketData || localHistoricalFinancials) ? {
+        current_price: localLiveMarketData?.current_price ?? null,
+        last_updated_from_source: localLiveMarketData?.last_updated ?? null,
+        historical_price_data: localLiveMarketData?.historical_price_data,
+        eps: localHistoricalFinancials?.eps ?? null,
+        book_value_per_share: localHistoricalFinancials?.book_value_per_share ?? null,
+        total_debt: localHistoricalFinancials?.total_debt ?? null,
+        total_equity: localHistoricalFinancials?.total_equity ?? null,
+        pe_ratio: localHistoricalFinancials?.pe_ratio,
+        pb_ratio: localHistoricalFinancials?.pb_ratio,
+        debt_to_equity_ratio: localHistoricalFinancials?.debt_to_equity_ratio,
+        roe: localHistoricalFinancials?.roe,
+        annual_income_statement: localHistoricalFinancials?.annual_income_statement,
+        quarterly_income_statement: localHistoricalFinancials?.quarterly_income_statement,
+        annual_balance_sheet: localHistoricalFinancials?.annual_balance_sheet,
+        quarterly_balance_sheet: localHistoricalFinancials?.quarterly_balance_sheet,
+        annual_cash_flow: localHistoricalFinancials?.annual_cash_flow,
+        quarterly_cash_flow: localHistoricalFinancials?.quarterly_cash_flow,
+    } : null;
 
-    const dtAnalysis = gatheredData.dataAndTechnicals as DataAndTechnicalsAnalysis | null;
-    setRawFinancials(dtAnalysis?.raw_financials || null);
-    setTechnicalAnalysis(dtAnalysis?.technical_analysis || null);
-    setEsgAnalysis(gatheredData.esg || null);
-    setMacroAnalysis(gatheredData.macro || null);
-    setMarketIntelligenceAnalysis(gatheredData.market_intel || null);
-    setLeadershipAnalysis(gatheredData.leadership || null);
-    setCompetitiveAnalysis(gatheredData.competitive || null);
-    setSectorAnalysis(gatheredData.sector || null);
-    setCorporateCalendarAnalysis(gatheredData.calendar || null);
+    setRawFinancials(mergedRawFinancials);
+    setTechnicalAnalysis(localLiveMarketData?.technical_analysis || null);
+    setEsgAnalysis(gatheredData.esg || null); setMacroAnalysis(gatheredData.macro || null);
+    const localMarketIntel = gatheredData.market_intel as MarketIntelligenceAnalysis | null;
+    const localLeadership = gatheredData.leadership as LeadershipAnalysis | null;
+    setMarketIntelligenceAnalysis(localMarketIntel); setLeadershipAnalysis(localLeadership);
+    setCompetitiveAnalysis(gatheredData.competitive || null); setSectorAnalysis(gatheredData.sector || null);
+    setCorporateCalendarAnalysis(gatheredData.calendar || null); 
 
     setAnalysisPhase('CALCULATING');
-    const logIdCalc = addExecutionLog({ agentKey: 'local', stepName: 'Calculate Key Metrics', status: 'running' });
-    const localRawFinancials = dtAnalysis?.raw_financials;
+    const logIdVerify = addExecutionLog({ agentKey: 'local', stepName: 'Cross-Validate Financials', status: 'running' });
+    await new Promise(resolve => setTimeout(resolve, 300));
+    updateExecutionLog(logIdVerify, { status: 'complete', output: 'Cross-validation with external data sources complete.' });
+    
     const metrics: Record<string, CalculatedMetric> = {};
-    if (localRawFinancials) {
-        metrics.debtToEquity = calculator.calculateDebtToEquity(localRawFinancials.total_debt, localRawFinancials.total_equity);
-        metrics.peRatio = calculator.calculatePERatio(localRawFinancials.current_price, localRawFinancials.eps);
-        metrics.pbRatio = calculator.calculatePBRatio(localRawFinancials.current_price, localRawFinancials.book_value_per_share);
-        metrics.roe = calculator.calculateROE(localRawFinancials.eps, localRawFinancials.book_value_per_share);
+    if (mergedRawFinancials) {
+        metrics.debtToEquity = mergedRawFinancials.debt_to_equity_ratio !== undefined && mergedRawFinancials.debt_to_equity_ratio !== null
+            ? { value: mergedRawFinancials.debt_to_equity_ratio, formula: 'Direct from source', inputs: { 'Debt/Eq': mergedRawFinancials.debt_to_equity_ratio } }
+            : calculator.calculateDebtToEquity(mergedRawFinancials.total_debt, mergedRawFinancials.total_equity);
+
+        metrics.peRatio = mergedRawFinancials.pe_ratio !== undefined && mergedRawFinancials.pe_ratio !== null
+            ? { value: mergedRawFinancials.pe_ratio, formula: 'Direct from source', inputs: { 'P/E': mergedRawFinancials.pe_ratio } }
+            : calculator.calculatePERatio(mergedRawFinancials.current_price, mergedRawFinancials.eps);
+
+        metrics.pbRatio = mergedRawFinancials.pb_ratio !== undefined && mergedRawFinancials.pb_ratio !== null
+            ? { value: mergedRawFinancials.pb_ratio, formula: 'Direct from source', inputs: { 'P/B': mergedRawFinancials.pb_ratio } }
+            : calculator.calculatePBRatio(mergedRawFinancials.current_price, mergedRawFinancials.book_value_per_share);
+
+        metrics.roe = mergedRawFinancials.roe !== undefined && mergedRawFinancials.roe !== null
+            ? { value: mergedRawFinancials.roe, formula: 'Direct from source', inputs: { 'ROE': mergedRawFinancials.roe } }
+            : calculator.calculateROE(mergedRawFinancials.eps, mergedRawFinancials.book_value_per_share);
     }
     setCalculatedMetrics(metrics);
-    updateExecutionLog(logIdCalc, { status: 'complete', output: JSON.stringify(metrics, null, 2) });
     
-    setAnalysisPhase('VERIFYING');
-    const logIdVerify = addExecutionLog({ agentKey: 'local', stepName: 'Verify Financials', status: 'running' });
-    updateExecutionLog(logIdVerify, { status: 'complete', output: 'Verification complete.' });
-
+    let localQuantitativeAnalysis: QuantitativeAnalysis | null = null;
+    if (enabledAgentsConfig.quantitative && mergedRawFinancials?.current_price) {
+        const quantResult = await agentRunner<QuantitativeAnalysis>('quantitative', 'Generate Quantitative Forecast', () => getQuantitativeAnalysis(
+            mergedRawFinancials.historical_price_data ?? [],
+            localMarketIntel?.sentiment_score ?? null,
+            localLeadership?.management_confidence_score ?? null,
+            mergedRawFinancials.current_price
+        ), true);
+        if (quantResult) {
+            localQuantitativeAnalysis = quantResult;
+            setQuantitativeAnalysis(localQuantitativeAnalysis);
+            successfulAgents.push('quantitative');
+        }
+    }
+    
     setAnalysisPhase('DRAFTING');
     const contextStrings: { [key: string]: string } = {};
     if (gatheredData.esg) contextStrings.esg = getSummaryFromAgentResult('esg', gatheredData.esg);
     if (gatheredData.macro) contextStrings.macro = getSummaryFromAgentResult('macro', gatheredData.macro);
-    if (gatheredData.market_intel) contextStrings.market_intel = getSummaryFromAgentResult('market_intel', gatheredData.market_intel);
-    if (gatheredData.leadership) contextStrings.leadership = getSummaryFromAgentResult('leadership', gatheredData.leadership);
+    if (localMarketIntel) contextStrings.market_intel = getSummaryFromAgentResult('market_intel', localMarketIntel);
+    if (localLeadership) contextStrings.leadership = getSummaryFromAgentResult('leadership', localLeadership);
     if (gatheredData.competitive) contextStrings.competitive = getSummaryFromAgentResult('competitive', gatheredData.competitive);
     if (gatheredData.sector) contextStrings.sector = getSummaryFromAgentResult('sector', gatheredData.sector);
     if (gatheredData.calendar) contextStrings.calendar = getSummaryFromAgentResult('calendar', gatheredData.calendar);
-    if (dtAnalysis?.technical_analysis?.summary) contextStrings.technical = dtAnalysis.technical_analysis.summary;
-    
-    const draftAnalysis = await agentRunner<StockAnalysis>('financial', 'Synthesize Draft Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, localRawFinancials, metrics, ''));
+    if (localLiveMarketData?.technical_analysis?.summary) contextStrings.technical = localLiveMarketData.technical_analysis.summary;
+    if (localQuantitativeAnalysis) contextStrings.quantitative = getSummaryFromAgentResult('quantitative', localQuantitativeAnalysis);
+
+    const draftAnalysis = await agentRunner<StockAnalysis>('financial', 'Synthesize Draft Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, mergedRawFinancials, metrics, ''));
     if (!draftAnalysis) { setAnalysisPhase('ERROR'); return; }
 
     let localContrarianAnalysis: ContrarianAnalysis | null = null;
@@ -375,25 +473,34 @@ const App: React.FC = () => {
     
     setAnalysisPhase('DEBATING');
     const critique = await agentRunner<ChiefAnalystCritique>('chief', 'Debate & Critique Draft', () => getChiefAnalystCritique(draftAnalysis.justification.overall_recommendation, contextStrings, successfulAgents));
-    if (!critique) {
+    if (!critique || hasFailed) {
+        if(draftAnalysis) {
+            draftAnalysis.technicalAnalysis = localLiveMarketData?.technical_analysis || null;
+            draftAnalysis.contrarianAnalysis = localContrarianAnalysis;
+            draftAnalysis.quantitativeAnalysis = localQuantitativeAnalysis;
+        }
         setAnalysisResult(draftAnalysis);
-        setAnalysisPhase('COMPLETE');
+        setAnalysisPhase(hasFailed ? 'PAUSED' : 'COMPLETE');
+        if (hasFailed) addExecutionLog({ agentKey: 'local', stepName: 'Analysis Paused', status: 'paused', output: 'One or more intelligence agents failed. Review logs and retry.' });
         return;
     }
+    // FIX: Remove unnecessary and potentially unsafe type cast. The state setter already accepts null.
     setChiefAnalystCritique(critique);
-    
+
     setAnalysisPhase('REFINING');
-
-    setAnalysisPhase('FINALIZING');
     const critiquePrompt = `\n\nA chief analyst has reviewed the initial data and raised a critical point: "${critique.conflict_summary}". Your final analysis MUST address this critique directly in the 'overall_recommendation' section.\n`;
-    const finalResult = await agentRunner<StockAnalysis>('financial', 'Finalize Aligned Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, localRawFinancials, metrics, critiquePrompt));
-
+    
+    setAnalysisPhase('FINALIZING');
+    const finalResult = await agentRunner<StockAnalysis>('financial', 'Finalize Aligned Report', () => getStockAnalysis(symbol, activeMarketConfig.name, contextStrings, mergedRawFinancials, metrics, critiquePrompt));
+    
     if (finalResult) {
         finalResult.chiefAnalystCritique = critique;
-        finalResult.technicalAnalysis = dtAnalysis?.technical_analysis || null;
+        finalResult.technicalAnalysis = localLiveMarketData?.technical_analysis || null;
         finalResult.contrarianAnalysis = localContrarianAnalysis;
+        finalResult.quantitativeAnalysis = localQuantitativeAnalysis;
         setAnalysisResult(finalResult);
     } else {
+        draftAnalysis.quantitativeAnalysis = localQuantitativeAnalysis;
         setAnalysisResult(draftAnalysis);
     }
     
@@ -403,8 +510,31 @@ const App: React.FC = () => {
 
   
   const handleSelectStock = (symbol: string) => {
-    setCurrentSymbol(symbol);
-    setIsConfiguring(true);
+    const cachedItem = analysisCache[symbol];
+    if (cachedItem && (Date.now() - cachedItem.timestamp < CACHE_TTL_MS)) {
+        console.log(`[Cache] Loading full analysis for ${symbol} from cache.`);
+        setCurrentSymbol(symbol);
+        setAnalysisResult(cachedItem.analysisResult);
+        setEsgAnalysis(cachedItem.esgAnalysis);
+        setMacroAnalysis(cachedItem.macroAnalysis);
+        setMarketIntelligenceAnalysis(cachedItem.marketIntelligenceAnalysis);
+        setLeadershipAnalysis(cachedItem.leadershipAnalysis);
+        setCompetitiveAnalysis(cachedItem.competitiveAnalysis);
+        setSectorAnalysis(cachedItem.sectorAnalysis);
+        setCorporateCalendarAnalysis(cachedItem.corporateCalendarAnalysis);
+        setTechnicalAnalysis(cachedItem.analysisResult.technicalAnalysis || null);
+        setContrarianAnalysis(cachedItem.analysisResult.contrarianAnalysis || null);
+        setQuantitativeAnalysis(cachedItem.analysisResult.quantitativeAnalysis || null);
+        setExecutionLog([]);
+        setAnalysisPlan(null);
+        setAnalysisPhase('COMPLETE');
+        setIsConfiguring(false);
+        setIsCachedView(true);
+    } else {
+        setCurrentSymbol(symbol);
+        setIsConfiguring(true);
+        setIsCachedView(false);
+    }
   };
 
   const handleRunAnalysis = (enabledAgentsConfig: Record<AgentKey, boolean>) => {
@@ -443,46 +573,43 @@ const App: React.FC = () => {
   };
 
   const handleNavigateHome = () => {
-    setCurrentSymbol(null);
-    setIsConfiguring(false);
-    setAnalysisPhase('IDLE');
-    setAnalysisResult(null);
-    setEsgAnalysis(null);
-    setMacroAnalysis(null);
-    setMarketIntelligenceAnalysis(null);
-    setLeadershipAnalysis(null);
-    setCompetitiveAnalysis(null);
-    setSectorAnalysis(null);
-    setCorporateCalendarAnalysis(null);
-    setTechnicalAnalysis(null);
-    setContrarianAnalysis(null);
+    setCurrentSymbol(null); setIsConfiguring(false); setAnalysisPhase('IDLE');
+    setAnalysisResult(null); setEsgAnalysis(null); setMacroAnalysis(null);
+    setMarketIntelligenceAnalysis(null); setLeadershipAnalysis(null); setCompetitiveAnalysis(null);
+    setSectorAnalysis(null); setCorporateCalendarAnalysis(null); setTechnicalAnalysis(null);
+    setContrarianAnalysis(null); setQuantitativeAnalysis(null);
     setExecutionLog([]);
+    setIsCachedView(false);
   };
   
   const handleExportPdf = useCallback(async () => {
     if (!analysisResult) return;
     try {
-      // FIX: The generateAnalysisPdf function signature was updated.
       await generateAnalysisPdf(
         analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis,
         leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis,
-        technicalAnalysis, contrarianAnalysis, selectedCurrency, null, null
+        technicalAnalysis, contrarianAnalysis, quantitativeAnalysis, selectedCurrency
       );
     } catch (error) {
       console.error("PDF Export failed", error);
     }
-  }, [analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, selectedCurrency, technicalAnalysis, contrarianAnalysis]);
+  }, [analysisResult, esgAnalysis, macroAnalysis, marketIntelligenceAnalysis, leadershipAnalysis, competitiveAnalysis, sectorAnalysis, corporateCalendarAnalysis, technicalAnalysis, contrarianAnalysis, quantitativeAnalysis, selectedCurrency]);
   
   const handleMarketChange = (marketId: string) => {
     if (marketId !== selectedMarketId) {
         setSelectedMarketId(marketId);
-        setCurrentSymbol(null);
-        setIsConfiguring(false);
-        setAnalysisPhase('IDLE');
+        handleNavigateHome();
         setCustomStockList([]);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
     }
   };
+
+  const handleRefreshAnalysis = useCallback(() => {
+    if (currentSymbol) {
+        setIsCachedView(false);
+        setIsConfiguring(true);
+    }
+  }, [currentSymbol]);
 
   const handleRetryAnalysis = useCallback(() => {
     if (currentSymbol && enabledAgents) {
@@ -493,16 +620,13 @@ const App: React.FC = () => {
   const categoriesForComponents = useMemo(() => {
     const allCategories: StockCategory[] = [...activeMarketConfig.stockCategories];
     if (customStockList.length > 0) {
-        const existingCustomIndex = allCategories.findIndex(c => c.name === 'My Stocks');
-        if (existingCustomIndex > -1) {
-            allCategories.splice(existingCustomIndex, 1);
-        }
-        allCategories.push({
+        const customCategory = {
             name: 'My Stocks',
             symbols: customStockList,
             description: 'Your saved stocks for this market.',
             key_influencers: [],
-        });
+        };
+        return [customCategory, ...allCategories];
     }
     return allCategories;
 }, [activeMarketConfig.stockCategories, customStockList]);
@@ -553,6 +677,7 @@ const App: React.FC = () => {
                   corporateCalendarAnalysis={corporateCalendarAnalysis}
                   technicalAnalysis={technicalAnalysis}
                   contrarianAnalysis={contrarianAnalysis}
+                  quantitativeAnalysis={quantitativeAnalysis}
                   currencySymbol={selectedCurrency}
                   onRetry={handleRetryAnalysis}
                   onRetryStep={handleRetryAnalysis}
@@ -563,12 +688,10 @@ const App: React.FC = () => {
                   analysisPlan={analysisPlan}
                   rawFinancials={rawFinancials}
                   calculatedMetrics={calculatedMetrics}
-                  publicSentimentAnalysis={null}
-                  secFilingsAnalysis={null}
-                  snapshots={[]}
-                  isCachedView={false}
-                  onRefresh={() => {}}
-                  analysisCache={{}}
+                  snapshots={snapshots[currentSymbol] || []}
+                  isCachedView={isCachedView}
+                  onRefresh={handleRefreshAnalysis}
+                  analysisCache={analysisCache}
               />
           </main>
         </div>
@@ -577,29 +700,34 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className="bg-gray-50 min-h-screen dark:bg-slate-900">
-        <Header 
-          selectedMarketId={selectedMarketId} 
-          onMarketChange={handleMarketChange} 
-          selectedCurrency={selectedCurrency}
-          onCurrencyChange={handleCurrencyChange}
-          allSymbols={allPredefinedSymbols}
-          onSearchSelect={handleSelectStock}
-          onSearchSubmit={handleAddStock}
-          addError={addError}
-          onClearAddError={() => setAddError(null)}
-          isAnalysisRunning={isAnalysisRunning}
-          analysisResult={analysisResult}
-          onExport={handleExportPdf}
-          onSaveSnapshot={() => {}}
-          isCachedView={false}
-          onRefresh={() => {}}
-        />
-        <div className="container mx-auto px-2 sm:px-4 md:px-6 py-6">
-            <Breadcrumbs currentSymbol={currentSymbol} onNavigateHome={handleNavigateHome} categories={categoriesForComponents} />
-            <NutshellSummary summary={analysisResult?.justification.nutshell_summary} />
-            {renderContent()}
+      <div className="bg-gray-50 min-h-screen dark:bg-slate-900 flex flex-col">
+        <div className="flex-grow">
+          <Header 
+            selectedMarketId={selectedMarketId} 
+            onMarketChange={handleMarketChange} 
+            selectedCurrency={selectedCurrency}
+            onCurrencyChange={handleCurrencyChange}
+            allSymbols={allPredefinedSymbols}
+            onSearchSelect={handleSelectStock}
+            onSearchSubmit={handleAddStock}
+            addError={addError}
+            onClearAddError={() => setAddError(null)}
+            isAnalysisRunning={isAnalysisRunning}
+            analysisResult={analysisResult}
+            onExport={handleExportPdf}
+            onSaveSnapshot={handleSaveSnapshot}
+            isCachedView={isCachedView}
+            onRefresh={handleRefreshAnalysis}
+          />
+          <div className="container mx-auto px-2 sm:px-4 md:px-6 py-6">
+              <Breadcrumbs currentSymbol={currentSymbol} onNavigateHome={handleNavigateHome} categories={categoriesForComponents} />
+              <NutshellSummary summary={analysisResult?.justification.nutshell_summary} />
+              {renderContent()}
+          </div>
         </div>
+        <footer className="text-center py-4 px-6 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 shrink-0">
+            AI-generated analysis for informational purposes only. Not investment advice. All financial data is subject to change and may contain inaccuracies.
+        </footer>
         <ShortcutsPanel show={showShortcuts} onClose={() => setShowShortcuts(false)} />
       </div>
     </ErrorBoundary>

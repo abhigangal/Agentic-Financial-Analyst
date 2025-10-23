@@ -133,8 +133,9 @@ export const MarketVoices: React.FC<MarketVoicesProps> = ({ user, experts, marke
             setAnalysis(result);
             // Update cache
             marketVoicesCache[cacheKey] = { data: result, timestamp: Date.now() };
-        } catch (e: any) {
-            setError(e.message || 'Failed to fetch expert recommendations.');
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Failed to fetch expert recommendations.';
+            setError(message);
         } finally {
             setIsLoading(false);
         }

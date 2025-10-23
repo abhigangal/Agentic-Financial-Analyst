@@ -1,8 +1,10 @@
-import React, { Component, ReactNode } from 'react';
+
+
+import React from 'react';
 import { ExclamationTriangleIcon } from './IconComponents';
 
 interface Props {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 interface State {
@@ -10,9 +12,11 @@ interface State {
   error?: Error;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends React.Component<Props, State> {
+  // FIX: Explicitly initialize the optional `error` field in the state to better type safety.
   public state: State = {
     hasError: false,
+    error: undefined,
   };
 
   public static getDerivedStateFromError(error: Error): State {
@@ -24,7 +28,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public render() {
-    if (this.state.hasError) {
+    const { hasError, error } = this.state;
+
+    if (hasError) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col items-center justify-center p-4 text-center">
             <div className="w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center mb-4 border-8 border-red-50 dark:border-slate-800/50">
@@ -40,19 +46,19 @@ export class ErrorBoundary extends Component<Props, State> {
             >
                 Refresh Page
             </button>
-            {this.state.error && (
+            {error && (
               <details className="mt-4 text-left max-w-lg w-full">
                 <summary className="text-sm text-slate-500 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300">Error Details</summary>
                 <pre className="mt-2 p-3 text-xs bg-slate-100 dark:bg-slate-800 text-red-500 dark:text-red-400 rounded-md overflow-auto">
-                    {this.state.error.name}: {this.state.error.message}
-                    {this.state.error.stack && `\n\n${this.state.error.stack}`}
+                    {error.name}: {error.message}
+                    {error.stack && `\n\n${error.stack}`}
                 </pre>
               </details>
           )}
         </div>
       );
     }
-
+    // FIX: Directly return this.props.children to simplify the render logic and avoid a potentially problematic destructuring assignment on the line where the error was reported.
     return this.props.children;
   }
 }

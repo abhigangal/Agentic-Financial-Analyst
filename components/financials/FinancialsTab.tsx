@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { RawFinancials, FinancialStatement } from '../../types';
 import { Sparkline } from '../charts/Sparkline';
-import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, XMarkIcon } from '../IconComponents';
+import { ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '../IconComponents';
 
 interface FinancialsTabProps {
   rawFinancials: RawFinancials | null;
@@ -20,35 +20,9 @@ const formatValue = (value: number | null): string => {
 
 const FinancialCell: React.FC<{
     value: number | null;
-    colIndex: number;
     rowData: (number | null)[];
-    viewType: 'annual' | 'quarterly';
-}> = ({ value, colIndex, rowData, viewType }) => {
+}> = ({ value, rowData }) => {
     const [isHovering, setIsHovering] = useState(false);
-    const [showGrowth, setShowGrowth] = useState(false);
-    
-    const growth = useMemo(() => {
-        const periodsAgo = viewType === 'annual' ? 1 : 4;
-        if (colIndex < periodsAgo) return null;
-
-        const currentValue = value;
-        const previousValue = rowData[colIndex - periodsAgo];
-
-        if (currentValue === null || previousValue === null || previousValue === 0) return null;
-
-        const growthPct = ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
-        return {
-            value: growthPct,
-            period: viewType === 'annual' ? 'YoY' : 'QoQ',
-        };
-    }, [value, colIndex, rowData, viewType]);
-
-    const handleCellClick = (e: React.MouseEvent) => {
-        if (growth) {
-            e.stopPropagation();
-            setShowGrowth(true);
-        }
-    };
     
     const popoverClasses = "absolute z-20 bottom-full mb-2 left-1/2 -translate-x-1/2 p-3 bg-white text-slate-700 text-xs font-medium rounded-lg shadow-xl border border-gray-200/80 animate-fade-in-fast dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 w-48";
     
@@ -56,38 +30,41 @@ const FinancialCell: React.FC<{
         <td
             className="px-4 py-2 text-slate-600 dark:text-slate-300 text-right font-mono relative"
             onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => { setIsHovering(false); setShowGrowth(false); }}
+            onMouseLeave={() => setIsHovering(false)}
         >
-            <button
-                onClick={handleCellClick}
-                className={`w-full h-full text-right p-1 -m-1 ${growth ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 rounded' : 'cursor-default'}`}
-                disabled={!growth}
-            >
+            <div className="w-full h-full p-1 -m-1">
                 {formatValue(value)}
-            </button>
+            </div>
             
-            {isHovering && !showGrowth && (
+            {isHovering && (
                 <div className={popoverClasses} style={{ pointerEvents: 'none' }}>
                     <p className="font-bold mb-1 text-center">8-Period Trend</p>
                     <Sparkline data={rowData.slice(-8)} width={150} height={40} color="#3b82f6" />
                 </div>
             )}
-            
-            {showGrowth && growth && (
-                <div className={popoverClasses}>
-                    <div className="flex justify-between items-center mb-1">
-                        <p className="font-bold">{growth.period} Growth</p>
-                        <button onClick={(e) => { e.stopPropagation(); setShowGrowth(false); }} className="p-1 -m-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
-                            <XMarkIcon className="h-4 w-4" />
-                        </button>
-                    </div>
-                    <div className={`flex items-center justify-center gap-2 text-lg font-bold ${growth.value >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {growth.value >= 0 ? <ArrowTrendingUpIcon className="h-5 w-5"/> : <ArrowTrendingDownIcon className="h-5 w-5"/>}
-                        <span>{growth.value.toFixed(2)}%</span>
-                    </div>
-                </div>
-            )}
         </td>
+    );
+};
+
+const GrowthCell: React.FC<{ currentValue: number | null; previousValue: number | null }> = ({ currentValue, previousValue }) => {
+    if (currentValue === null || previousValue === null || previousValue === 0) {
+      return <td className="px-4 py-2 text-right font-mono text-slate-400 dark:text-slate-500">-</td>;
+    }
+    
+    if (Math.abs(previousValue) < 1e-9) {
+        return <td className="px-4 py-2 text-right font-mono text-slate-400 dark:text-slate-500">-</td>;
+    }
+
+    const growthPct = ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
+    const isPositive = growthPct >= 0;
+
+    return (
+      <td className="px-4 py-2 text-right">
+        <div className={`flex items-center justify-end gap-1 font-mono text-sm ${isPositive ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+          {isPositive ? <ArrowTrendingUpIcon className="h-4 w-4"/> : <ArrowTrendingDownIcon className="h-4 w-4"/>}
+          <span>{growthPct.toFixed(1)}%</span>
+        </div>
+      </td>
     );
 };
 
@@ -112,23 +89,31 @@ const FinancialStatementTable: React.FC<{ statement: FinancialStatement | undefi
                         {statement.periods.map(period => (
                             <th key={period} scope="col" className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-right">{period}</th>
                         ))}
+                        <th scope="col" className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 text-right">{view === 'annual' ? 'YoY Growth' : 'QoQ Growth'}</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-slate-700/80">
-                    {statement.rows.map((row, rowIndex) => (
-                        <tr key={rowIndex} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
-                            <td className="px-4 py-2 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">{row.label}</td>
-                            {row.values.map((value, valueIndex) => (
-                                <FinancialCell
-                                    key={valueIndex}
-                                    value={value}
-                                    colIndex={valueIndex}
-                                    rowData={row.values}
-                                    viewType={view}
-                                />
-                            ))}
-                        </tr>
-                    ))}
+                    {statement.rows.map((row, rowIndex) => {
+                        const periodsAgo = view === 'annual' ? 1 : 4;
+                        const lastIndex = row.values.length - 1;
+                        const hasEnoughDataForGrowth = lastIndex >= periodsAgo;
+                        const currentValue = hasEnoughDataForGrowth ? row.values[lastIndex] : null;
+                        const previousValue = hasEnoughDataForGrowth ? row.values[lastIndex - periodsAgo] : null;
+
+                        return (
+                            <tr key={rowIndex} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                                <td className="px-4 py-2 font-medium text-slate-700 dark:text-slate-200 whitespace-nowrap">{row.label}</td>
+                                {row.values.map((value, valueIndex) => (
+                                    <FinancialCell
+                                        key={valueIndex}
+                                        value={value}
+                                        rowData={row.values}
+                                    />
+                                ))}
+                                <GrowthCell currentValue={currentValue} previousValue={previousValue} />
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>
@@ -175,7 +160,7 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({ rawFinancials, sto
             <div className="flex justify-between items-center">
                 <div>
                      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Financial Statements</h3>
-                     <p className="text-sm text-slate-500 dark:text-slate-400">Hover over values for trends, click for growth analysis. {unitNote}</p>
+                     <p className="text-sm text-slate-500 dark:text-slate-400">Hover over values for trends. {unitNote}</p>
                 </div>
                 <div className="flex items-center space-x-1 bg-slate-200/70 p-1 rounded-lg dark:bg-slate-700">
                     <button 

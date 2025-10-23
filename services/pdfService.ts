@@ -152,7 +152,6 @@ class PdfBuilder {
     this.y += lines.length * 12 + 10;
   }
 
-  // FIX: This private method was missing, causing an error.
   private addSpacer(height: number) {
     this.addPageIfNeeded(height);
     this.y += height;
@@ -359,7 +358,6 @@ class PdfBuilder {
     this.y = (this.doc as any).lastAutoTable.finalY + 20;
   }
 
-  // FIX: Add missing methods for methodology PDF generation
   addKeyMultiValue(key: string, values: string[], color: string) {
       this.addPageIfNeeded(30 + values.length * 12);
       this.doc.setFontSize(FONT_SIZES.BODY);
@@ -399,13 +397,28 @@ class PdfBuilder {
       this.y += 15;
   }
   
+  addExecutiveSummaries(
+    analyses: { title: string; summary: string | null | undefined }[]
+  ) {
+    const validSummaries = analyses.filter(a => a.summary && a.summary !== 'N/A');
+    if (validSummaries.length === 0) return;
+
+    this.addSectionTitle('Agent Executive Summaries');
+    
+    validSummaries.forEach(item => {
+        this.addSubsectionTitle(item.title);
+        this.addBodyText(item.summary);
+    });
+
+    this.addSpacer(10);
+  }
+
   save(filename: string) {
     this.addHeadersAndFooters();
     this.doc.save(filename);
   }
 }
 
-// FIX: Add missing exported function for the main analysis PDF.
 export async function generateAnalysisPdf(
   analysisResult: StockAnalysis,
   esgAnalysis: EsgAnalysis | null,
@@ -428,7 +441,18 @@ export async function generateAnalysisPdf(
         'AI-Generated Financial Analysis Report'
     );
     
-    builder.addSectionTitle('Executive Summary');
+    builder.addExecutiveSummaries([
+        { title: 'Quantitative Forecast', summary: quantitativeAnalysis?.summary },
+        { title: 'Competitive Landscape', summary: competitiveAnalysis?.competitive_summary },
+        { title: 'Leadership & Governance', summary: leadershipAnalysis?.summary },
+        { title: 'Market Intelligence', summary: marketIntelligenceAnalysis?.intelligence_summary },
+        { title: 'ESG Profile', summary: esgAnalysis?.justification.overall_summary },
+        { title: 'Macroeconomic Context', summary: macroAnalysis?.outlook_summary },
+        { title: 'Contrarian Analysis (Bear Case)', summary: contrarianAnalysis?.bear_case_summary },
+        { title: 'Technical Analysis', summary: technicalAnalysis?.summary },
+    ]);
+    
+    builder.addSectionTitle('Overall Recommendation & Thesis');
     builder.addPriceSummary(analysisResult, currencySymbol);
     builder.addKeyInsightsGrid(analysisResult, currencySymbol);
     builder.addSubsectionTitle('Overall Recommendation');
@@ -529,7 +553,6 @@ export async function generateAnalysisPdf(
     builder.save(filename);
 }
 
-// FIX: Add missing exported function for the methodology PDF.
 export async function generateMethodologyPdf(
   stockSymbol: string,
   plan: string | null,

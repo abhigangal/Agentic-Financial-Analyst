@@ -28,8 +28,9 @@ export const LoginPage: React.FC = () => {
         await signup(email);
       }
       // On success, the App component will automatically transition to the dashboard
-    } catch (err: any) {
-      setError(err.message || 'An unknown error occurred.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }

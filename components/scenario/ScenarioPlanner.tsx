@@ -34,8 +34,9 @@ export const ScenarioPlanner: React.FC<ScenarioPlannerProps> = ({ stockName, fin
         const chatInstance = await startScenarioChat(stockContext);
         setChat(chatInstance);
         setMessages([{ role: 'model', content: `Ready for scenario planning for **${stockName}**. What's on your mind? For example: "What if oil prices increase by 20%?"` }]);
-    } catch (e: any) {
-        setError(e.message || "Failed to initialize the scenario planner. Please try again.");
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Failed to initialize the scenario planner. Please try again.";
+        setError(message);
     } finally {
         setIsLoading(false);
         setTimeout(() => inputRef.current?.focus(), 100);
@@ -77,8 +78,8 @@ export const ScenarioPlanner: React.FC<ScenarioPlannerProps> = ({ stockName, fin
         return newMessages;
     });
 
-    } catch (e: any) {
-      const errorMessage = e.message || 'An error occurred while fetching the response.';
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'An error occurred while fetching the response.';
       setError(errorMessage);
        setMessages(prev => {
         const newMessages = [...prev];

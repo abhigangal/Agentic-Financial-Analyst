@@ -1,6 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse, Chat } from "@google/genai";
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, TechnicalAnalysis, ContrarianAnalysis, DataAndTechnicalsAnalysis, AgentKey, QuantitativeAnalysis, HistoricalPriceDataPoint } from '../types';
-import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, MARKET_INTELLIGENCE_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, DATA_AND_TECHNICALS_AGENT_PROMPT, CONTRARIAN_AGENT_PROMPT, DATA_AND_TECHNICALS_FINVIZ_AGENT_PROMPT, DATA_AND_TECHNICALS_YAHOO_AGENT_PROMPT, QUANTITATIVE_AGENT_PROMPT, DATA_AND_TECHNICALS_BANK_AGENT_PROMPT } from '../constants';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, MarketVoicesAnalysis, Expert, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, RawFinancials, CalculatedMetric, TechnicalAnalysis, ContrarianAnalysis, AgentKey, QuantitativeAnalysis, HistoricalPriceDataPoint, LiveMarketData, HistoricalFinancials } from '../types';
+import { FINANCIAL_AGENT_PROMPT, ESG_AGENT_PROMPT, MACRO_AGENT_PROMPT, MARKET_INTELLIGENCE_AGENT_PROMPT, LEADERSHIP_AGENT_PROMPT, MARKET_VOICES_AGENT_PROMPT, SCENARIO_PLANNER_PROMPT, COMPETITIVE_AGENT_PROMPT, SECTOR_OUTLOOK_AGENT_PROMPT, CORPORATE_CALENDAR_AGENT_PROMPT, CHIEF_ANALYST_AGENT_PROMPT, PLANNING_AGENT_PROMPT, CONTRARIAN_AGENT_PROMPT, QUANTITATIVE_AGENT_PROMPT, COMPETITIVE_US_AGENT_PROMPT, MARKET_INTELLIGENCE_US_AGENT_PROMPT, LIVE_MARKET_DATA_AGENT_PROMPT, HISTORICAL_FINANCIALS_AGENT_PROMPT, LIVE_MARKET_DATA_BANK_AGENT_PROMPT, HISTORICAL_FINANCIALS_BANK_AGENT_PROMPT, LIVE_MARKET_DATA_FINVIZ_AGENT_PROMPT, HISTORICAL_FINANCIALS_FINVIZ_AGENT_PROMPT, LIVE_MARKET_DATA_YAHOO_AGENT_PROMPT, HISTORICAL_FINANCIALS_YAHOO_AGENT_PROMPT } from '../constants';
 
 if (!process.env.API_KEY) {
   // The error handling in the app will catch the error from the SDK
@@ -201,7 +201,10 @@ export async function getMarketIntelligenceAnalysis(stockSymbol: string, marketN
         userPrompt += `\n\nCRITICAL REFINEMENT QUESTION: You MUST answer this specific question in your analysis: "${overridePrompt}"`;
     }
     try {
-        const systemInstruction = MARKET_INTELLIGENCE_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
+        let systemInstruction = MARKET_INTELLIGENCE_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
+        if (marketName === 'United States') {
+            systemInstruction = MARKET_INTELLIGENCE_US_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
+        }
         const result = await runAgent<MarketIntelligenceAnalysis>(systemInstruction, userPrompt, true);
         if (!result.regulatory_and_geopolitical_risks) result.regulatory_and_geopolitical_risks = [];
         if (!result.key_articles) result.key_articles = [];
@@ -237,7 +240,10 @@ export async function getCompetitiveAnalysis(stockSymbol: string, marketName: st
         userPrompt += `\n\nCRITICAL REFINEMENT QUESTION: You MUST answer this specific question in your analysis: "${overridePrompt}"`;
     }
     try {
-        const systemInstruction = COMPETITIVE_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
+        let systemInstruction = COMPETITIVE_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
+        if (marketName === 'United States') {
+            systemInstruction = COMPETITIVE_US_AGENT_PROMPT.replace(/\[Market Name\]/g, marketName);
+        }
         const result = await runAgent<CompetitiveAnalysis>(systemInstruction, userPrompt, true);
         return result;
     } catch (e) {
@@ -292,11 +298,17 @@ export async function getContrarianAnalysis(draftSummary: string, specialistCont
 export async function getQuantitativeAnalysis(
     historicalPrices: HistoricalPriceDataPoint[],
     sentimentScore: number | null,
-    managementConfidence: number | null
+    managementConfidence: number | null,
+    currentPrice: number | null
 ): Promise<QuantitativeAnalysis> {
+    let historicalDataPrompt = 'No historical data available.';
+    if (historicalPrices.length > 0) {
+        historicalDataPrompt = `HISTORICAL DATA (last 30 days):\n${historicalPrices.slice(-30).map(p => `${p.date}: ${p.close}`).join('\n')}`;
+    }
+
     const userPrompt = `
-        HISTORICAL DATA (last 30 days):
-        ${historicalPrices.slice(-30).map(p => `${p.date}: ${p.close}`).join('\n')}
+        CURRENT PRICE: ${currentPrice ?? 'N/A'}
+        ${historicalDataPrompt}
 
         QUALITATIVE SIGNALS:
         - sentiment_score: ${sentimentScore ?? 'N/A'}
@@ -310,32 +322,55 @@ export async function getQuantitativeAnalysis(
     }
 }
 
-export async function getDataAndTechnicalsAnalysis(screenerUrl: string, screenerName: string, marketName: string, isBank: boolean = false): Promise<DataAndTechnicalsAnalysis> {
-    const userPrompt = `Please extract financial data and perform technical analysis for the company at URL: ${screenerUrl}`;
+export async function getLiveMarketData(screenerUrl: string, screenerName: string, marketName: string, isBank: boolean = false): Promise<LiveMarketData> {
+    const userPrompt = `Please extract live market data for the company at URL: ${screenerUrl}`;
     try {
         let systemInstruction: string;
         switch (screenerName) {
             case 'Finviz':
-                systemInstruction = DATA_AND_TECHNICALS_FINVIZ_AGENT_PROMPT;
+                systemInstruction = LIVE_MARKET_DATA_FINVIZ_AGENT_PROMPT;
                 break;
             case 'Yahoo Finance':
-                 systemInstruction = DATA_AND_TECHNICALS_YAHOO_AGENT_PROMPT;
+                 systemInstruction = LIVE_MARKET_DATA_YAHOO_AGENT_PROMPT;
                  break;
             case 'Screener.in':
             default:
-                systemInstruction = isBank ? DATA_AND_TECHNICALS_BANK_AGENT_PROMPT : DATA_AND_TECHNICALS_AGENT_PROMPT;
+                systemInstruction = isBank ? LIVE_MARKET_DATA_BANK_AGENT_PROMPT : LIVE_MARKET_DATA_AGENT_PROMPT;
                 break;
         }
         
-        systemInstruction = systemInstruction
-            .replace(/\[Screener Name\]/g, screenerName)
-            .replace(/\[Market Name\]/g, marketName);
+        systemInstruction = systemInstruction.replace(/\[Market Name\]/g, marketName);
 
-        const result = await runAgent<DataAndTechnicalsAnalysis>(systemInstruction, userPrompt, true);
-        return result;
+        return await runAgent<LiveMarketData>(systemInstruction, userPrompt, true);
     } catch (e) {
         console.error(e);
-        throw new Error(e instanceof Error ? e.message : `Data and technicals extraction failed for ${screenerName}.`);
+        throw new Error(e instanceof Error ? e.message : `Live market data extraction failed for ${screenerName}.`);
+    }
+}
+
+export async function getHistoricalFinancials(screenerUrl: string, screenerName: string, marketName: string, isBank: boolean = false): Promise<HistoricalFinancials> {
+    const userPrompt = `Please extract historical financial statements for the company at URL: ${screenerUrl}`;
+    try {
+        let systemInstruction: string;
+        switch (screenerName) {
+            case 'Finviz':
+                systemInstruction = HISTORICAL_FINANCIALS_FINVIZ_AGENT_PROMPT;
+                break;
+            case 'Yahoo Finance':
+                 systemInstruction = HISTORICAL_FINANCIALS_YAHOO_AGENT_PROMPT;
+                 break;
+            case 'Screener.in':
+            default:
+                systemInstruction = isBank ? HISTORICAL_FINANCIALS_BANK_AGENT_PROMPT : HISTORICAL_FINANCIALS_AGENT_PROMPT;
+                break;
+        }
+        
+        systemInstruction = systemInstruction.replace(/\[Market Name\]/g, marketName);
+
+        return await runAgent<HistoricalFinancials>(systemInstruction, userPrompt, true);
+    } catch (e) {
+        console.error(e);
+        throw new Error(e instanceof Error ? e.message : `Historical financials extraction failed for ${screenerName}.`);
     }
 }
 
@@ -376,7 +411,7 @@ const sanitizeRecommendation = (rec: string | undefined): StockAnalysis['recomme
 const sanitizeSentiment = (sentiment: string | undefined): StockAnalysis['overall_sentiment'] => {
     if (!sentiment) return 'N/A';
     const sanitized = sentiment.split('(')[0].trim();
-    const validSentiments: StockAnalysis['overall_sentiment'][] = ['Strong Bullish', 'Bullish', 'Neutral', 'Bearish', 'Strong Bullish', 'N/A'];
+    const validSentiments: StockAnalysis['overall_sentiment'][] = ['Strong Bullish', 'Bullish', 'Neutral', 'Bearish', 'Strong Bearish', 'N/A'];
      if (validSentiments.includes(sanitized as any)) {
       return sanitized as StockAnalysis['overall_sentiment'];
     }

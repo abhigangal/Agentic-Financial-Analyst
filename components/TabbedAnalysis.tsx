@@ -283,8 +283,8 @@ export const TabbedAnalysis: React.FC<TabbedAnalysisProps> = (props) => {
                     </SidekickAgentCard>
                 </Tabs.Panel>
                 <Tabs.Panel id={TABS.TECHNICALS}>
-                    {/* FIX: Add nullish coalescing to handle potential undefined values from optional chaining, preventing a type error. */}
-                    <SidekickAgentCard title="Technical Analysis" icon={<ScaleIcon className="h-5 w-5" />} isLoading={agentStatuses.data_and_technicals?.isLoading ?? false} error={agentStatuses.data_and_technicals?.error ?? null}>
+                    {/* FIX: Removed unnecessary optional chaining `?.` as `live_market_data` is a guaranteed key in the `agentStatuses` object. */}
+                    <SidekickAgentCard title="Technical Analysis" icon={<ScaleIcon className="h-5 w-5" />} isLoading={agentStatuses.live_market_data.isLoading} error={agentStatuses.live_market_data.error}>
                         <TechnicalAgentCard result={props.technicalAnalysis} />
                     </SidekickAgentCard>
                 </Tabs.Panel>

@@ -3,13 +3,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { StockCategory, MarketConfig } from '../../types';
 
-// Logic to validate US stock symbols using Finviz.
-const validateFinvizSymbol = async (symbol: string): Promise<boolean> => {
+// Logic to validate US stock symbols using Yahoo Finance.
+const validateYahooSymbol = async (symbol: string): Promise<boolean> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const urlToCheck = `https://finviz.com/quote.ashx?t=${symbol}`;
+    const urlToCheck = `https://finance.yahoo.com/quote/${symbol}`;
     // A more robust prompt to check for a valid page with actual data
-    const contents = `URL: ${urlToCheck}. Is this a valid Finviz stock page with a chart and news? Answer ONLY "YES" or "NO".`;
+    const contents = `URL: ${urlToCheck}. Does this URL lead to a valid Yahoo Finance page for a publicly traded stock? Look for a price and a chart. Answer ONLY "YES" or "NO".`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -22,7 +22,7 @@ const validateFinvizSymbol = async (symbol: string): Promise<boolean> => {
 
     return response.text.trim().toUpperCase().startsWith('YES');
   } catch (error) {
-    console.error(`Error validating symbol ${symbol} on Finviz:`, error);
+    console.error(`Error validating symbol ${symbol} on Yahoo Finance:`, error);
     return false;
   }
 };
@@ -87,9 +87,9 @@ const stockCategories: StockCategory[] = [
 export const usMarketConfig: MarketConfig = {
     id: 'US',
     name: 'United States',
-    screenerName: 'Finviz',
-    screenerUrlTemplate: 'https://finviz.com/quote.ashx?t={symbol}',
-    validateSymbol: validateFinvizSymbol,
+    screenerName: 'Yahoo Finance',
+    screenerUrlTemplate: 'https://finance.yahoo.com/quote/{symbol}',
+    validateSymbol: validateYahooSymbol,
     stockCategories: stockCategories,
     experts: [],
     currencySymbol: '$',
