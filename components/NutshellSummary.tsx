@@ -1,14 +1,13 @@
 import React from 'react';
 import { SparklesIcon } from './IconComponents';
+import { useAnalysis } from '../contexts/AnalysisContext';
 
-interface NutshellSummaryProps {
-    summary: string | null | undefined;
-}
+export const NutshellSummary: React.FC = () => {
+    const { state } = useAnalysis();
+    const summary = state.analysisResult?.justification.nutshell_summary;
 
-export const NutshellSummary: React.FC<NutshellSummaryProps> = ({ summary }) => {
     if (!summary) return null;
 
-    // Remove trailing citation-like numbers (e.g., [1, 2, 3]) from the summary for better readability.
     const cleanedSummary = summary.replace(/\s*\[[\d,\s]+\]\s*$/, '');
 
     return (

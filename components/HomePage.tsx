@@ -1,14 +1,13 @@
 import React from 'react';
 import { StockExplorer } from './StockExplorer';
 import { StockCategory, Expert, User } from '../types';
-import { AnalysisCacheItem } from '../../App';
+import { useAnalysis } from '../contexts/AnalysisContext';
 import { Tabs } from './Tabs';
 import { MarketVoices } from './MarketVoices';
 import { ClipboardDocumentListIcon, ChatBubbleLeftRightIcon } from './IconComponents';
 
 interface HomePageProps {
     categories: StockCategory[];
-    currentSymbol: string | null;
     onSelectStock: (symbol: string) => void;
     onAddStock: (symbol: string) => void;
     onRemoveStock: (symbol: string) => void;
@@ -16,13 +15,15 @@ interface HomePageProps {
     addError: string | null;
     onClearAddError: () => void;
     disabled: boolean;
-    analysisCache: Record<string, AnalysisCacheItem>;
     marketName: string;
     experts: Expert[];
 }
 
 export const HomePage: React.FC<HomePageProps> = (props) => {
+    const { state } = useAnalysis();
+    const { currentSymbol, analysisCache } = state;
     const user: User = { email: 'demo@premium.com', role: 'premium' };
+    
     const TABS = {
         EXPLORER: 'Stock Explorer',
         VOICES: 'Expert Opinions',
@@ -48,7 +49,18 @@ export const HomePage: React.FC<HomePageProps> = (props) => {
                 </Tabs.List>
                 <Tabs.Panels>
                     <Tabs.Panel id={TABS.EXPLORER}>
-                        <StockExplorer {...props} />
+                        <StockExplorer 
+                            categories={props.categories}
+                            currentSymbol={currentSymbol}
+                            onSelectStock={props.onSelectStock}
+                            onAddStock={props.onAddStock}
+                            onRemoveStock={props.onRemoveStock}
+                            isAdding={props.isAdding}
+                            addError={props.addError}
+                            onClearAddError={props.onClearAddError}
+                            disabled={props.disabled}
+                            analysisCache={analysisCache}
+                        />
                     </Tabs.Panel>
                     <Tabs.Panel id={TABS.VOICES}>
                         <MarketVoices 

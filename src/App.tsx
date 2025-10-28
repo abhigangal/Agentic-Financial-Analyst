@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from './components/Header';
-// FIX: Import Snapshot and updated data types
 import { StockAnalysis, EsgAnalysis, MacroAnalysis, MarketIntelligenceAnalysis, LeadershipAnalysis, CompetitiveAnalysis, SectorAnalysis, CorporateCalendarAnalysis, ChiefAnalystCritique, ExecutionStep, RawFinancials, CalculatedMetric, GroundingSource, TechnicalAnalysis, ContrarianAnalysis, AgentKey, StockCategory, Expert, HistoricalFinancials, LiveMarketData, QuantitativeAnalysis, Snapshot } from './types';
-// FIX: Use separate service calls for market data and historical financials
 import { getStockAnalysis, getEsgAnalysis, getMacroAnalysis, getMarketIntelligenceAnalysis, getLeadershipAnalysis, getCompetitiveAnalysis, getSectorAnalysis, getCorporateCalendarAnalysis, getChiefAnalystCritique, getAnalysisPlan, getContrarianAnalysis, getQuantitativeAnalysis, getLiveMarketData, getHistoricalFinancials } from './services/geminiService';
 import { generateAnalysisPdf } from './services/pdfService';
 import { marketConfigs } from './data/markets';
@@ -271,13 +269,14 @@ const App: React.FC = () => {
         if (!symbol) {
             // This should not happen if called correctly, but as a safeguard:
             console.error("agentRunner called without a currentSymbol.");
-            // To satisfy the return type, we throw an error. The calling code should handle this.
-            throw new Error("No stock symbol selected.");
+            return null;
         }
         
-        setAgentStatus(agentKey as any, { isLoading: true, error: null });
+        if (agentKey !== 'local') {
+            setAgentStatus(agentKey, { isLoading: true, error: null });
+        }
         const logId = addExecutionLog({
-            agentKey: agentKey as any, stepName, status: 'running',
+            agentKey: agentKey, stepName, status: 'running',
             input: inputToLog ? JSON.stringify(inputToLog, null, 2) : undefined
         });
         try {
@@ -295,14 +294,16 @@ const App: React.FC = () => {
                     setAgentCache(prev => ({ ...prev, [cacheKey]: { data, timestamp: Date.now() } }));
                 }
             }
-            setAgentStatus(agentKey as any, { isLoading: false });
+            if (agentKey !== 'local') {
+                setAgentStatus(agentKey, { isLoading: false });
+            }
             return data;
         } catch (e: unknown) {
             const errorMsg = e instanceof Error ? e.message : "An unknown error occurred.";
             updateExecutionLog(logId, { status: 'error', output: errorMsg });
-            setAgentStatus(agentKey as any, { isLoading: false, error: errorMsg });
-            // FIX: Return null on failure to match the function's return signature `Promise<T | null>`.
-            // This allows Promise.allSettled to handle it as a fulfilled promise with a null value.
+            if (agentKey !== 'local') {
+                setAgentStatus(agentKey, { isLoading: false, error: errorMsg });
+            }
             return null;
         }
     }, [agentCache, currentSymbol]);
@@ -330,18 +331,22 @@ const App: React.FC = () => {
     
     const plan = await agentRunner('financial', 'Create Analysis Plan', () => getAnalysisPlan(symbol, activeMarketConfig.name, Object.keys(enabledAgentsConfig).filter(k => enabledAgentsConfig[k as AgentKey]).join(', ')));
     if (!plan) { setAnalysisPhase('ERROR'); return; }
-    // FIX: Remove unnecessary and potentially unsafe type cast. `plan` is guaranteed to be a string here.
     setAnalysisPlan(plan);
     setAnalysisPhase('GATHERING');
 
     const dataPromises: Record<string, Promise<any>> = {};
-    const screenerUrl = activeMarketConfig.screenerUrlTemplate.replace('{symbol}', symbol);
+    
+    let symbolForScreener = symbol;
+    if (activeMarketConfig.screenerName === 'Screener.in') {
+        symbolForScreener = symbol.replace(/\.NS$|\.BO$/i, '');
+    }
+    const screenerUrl = activeMarketConfig.screenerUrlTemplate.replace('{symbol}', symbolForScreener);
     
     const stockCategory = activeMarketConfig.stockCategories.find(cat => cat.symbols.includes(symbol));
     const isBank = stockCategory?.name === 'Banking' || stockCategory?.name === 'PSU Banks';
 
-    dataPromises.liveMarketData = agentRunner('live_market_data', 'Extract Live Market Data', () => getLiveMarketData(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), false);
-    dataPromises.historicalFinancials = agentRunner('historical_financials', 'Extract Historical Financials', () => getHistoricalFinancials(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), true);
+    dataPromises.liveMarketData = agentRunner('live_market_data', 'Extract Live Market Data', () => getLiveMarketData(symbol, screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), false, screenerUrl);
+    dataPromises.historicalFinancials = agentRunner('historical_financials', 'Extract Historical Financials', () => getHistoricalFinancials(screenerUrl, activeMarketConfig.screenerName, activeMarketConfig.name, isBank), true, screenerUrl);
 
     if (enabledAgentsConfig.esg) { dataPromises.esg = agentRunner('esg', 'Analyze ESG Profile', () => getEsgAnalysis(symbol, activeMarketConfig.name), true); }
     if (enabledAgentsConfig.macro) { dataPromises.macro = agentRunner('macro', 'Analyze Macroeconomic Trends', () => getMacroAnalysis(symbol, activeMarketConfig.name), true); }
@@ -437,7 +442,7 @@ const App: React.FC = () => {
             localMarketIntel?.sentiment_score ?? null,
             localLeadership?.management_confidence_score ?? null,
             mergedRawFinancials.current_price
-        ), true);
+        ), true, { historical_prices: '...omitted...', sentiment: localMarketIntel?.sentiment_score, management_confidence: localLeadership?.management_confidence_score, current_price: mergedRawFinancials.current_price });
         if (quantResult) {
             localQuantitativeAnalysis = quantResult;
             setQuantitativeAnalysis(localQuantitativeAnalysis);
@@ -484,7 +489,6 @@ const App: React.FC = () => {
         if (hasFailed) addExecutionLog({ agentKey: 'local', stepName: 'Analysis Paused', status: 'paused', output: 'One or more intelligence agents failed. Review logs and retry.' });
         return;
     }
-    // FIX: Remove unnecessary and potentially unsafe type cast. The state setter already accepts null.
     setChiefAnalystCritique(critique);
 
     setAnalysisPhase('REFINING');
@@ -549,18 +553,37 @@ const App: React.FC = () => {
     setAddError(null);
     setIsAddingStock(true);
     try {
-      const isValid = await activeMarketConfig.validateSymbol(symbol);
-      if (isValid) {
-        const upperSymbol = symbol.toUpperCase();
-        if (!allPredefinedSymbols.includes(upperSymbol)) {
-          setCustomStockList(prev => [...prev, upperSymbol]);
+        let symbolToAdd = symbol.toUpperCase();
+        // Market-specific logic for symbol formatting
+        if (activeMarketConfig.id === 'IN' && !symbolToAdd.endsWith('.NS') && !symbolToAdd.endsWith('.BO')) {
+            symbolToAdd = `${symbolToAdd}.NS`;
         }
-        handleSelectStock(upperSymbol);
-      } else {
-        setAddError(`Symbol '${symbol.toUpperCase()}' not found or is invalid for the ${activeMarketConfig.name} market.`);
-      }
+        if ((activeMarketConfig.id === 'UK' || activeMarketConfig.id === 'BF') && !symbolToAdd.endsWith('.L')) {
+            symbolToAdd = `${symbolToAdd}.L`;
+        }
+
+        const isValid = await activeMarketConfig.validateSymbol(symbolToAdd);
+        if (isValid) {
+            if (!allPredefinedSymbols.includes(symbolToAdd)) {
+                setCustomStockList(prev => [...prev, symbolToAdd]);
+            }
+            handleSelectStock(symbolToAdd);
+        } else {
+            let errorMsg = `Symbol '${symbol.toUpperCase()}' not found or is invalid for the ${activeMarketConfig.name} market.`;
+            if (activeMarketConfig.id === 'IN') {
+                errorMsg += " Try adding '.NS' for NSE stocks.";
+            }
+            if (activeMarketConfig.id === 'UK' || activeMarketConfig.id === 'BF') {
+                errorMsg += " Try adding '.L' for LSE stocks.";
+            }
+            setAddError(errorMsg);
+        }
+    } catch (e: unknown) {
+        // FIX: The caught error `e` is of type `unknown`. It must be type-checked before being used as a string.
+        const errorMsg = e instanceof Error ? e.message : 'An unexpected error occurred.';
+        setAddError(errorMsg);
     } finally {
-      setIsAddingStock(false);
+        setIsAddingStock(false);
     }
   };
 
@@ -635,10 +658,8 @@ const App: React.FC = () => {
     if (isConfiguring && currentSymbol) {
       return (
         <AnalysisConfiguration
-          stockSymbol={currentSymbol}
           onRunAnalysis={handleRunAnalysis}
           onCancel={handleNavigateHome}
-          analysisCache={analysisCache}
         />
       );
     }
@@ -647,7 +668,6 @@ const App: React.FC = () => {
         return (
             <HomePage
                 categories={categoriesForComponents}
-                currentSymbol={currentSymbol}
                 onSelectStock={handleSelectStock}
                 onRemoveStock={handleRemoveStock}
                 onAddStock={handleAddStock}
@@ -655,7 +675,6 @@ const App: React.FC = () => {
                 addError={addError}
                 onClearAddError={() => setAddError(null)}
                 disabled={isAnalysisRunning}
-                analysisCache={analysisCache}
                 marketName={activeMarketConfig.name}
                 experts={activeMarketConfig.experts || []}
             />
@@ -666,32 +685,7 @@ const App: React.FC = () => {
         <div className="animate-fade-in">
           <main>
               <TabbedAnalysis
-                  currentSymbol={currentSymbol}
-                  analysisResult={analysisResult}
-                  esgAnalysis={esgAnalysis}
-                  macroAnalysis={macroAnalysis}
-                  marketIntelligenceAnalysis={marketIntelligenceAnalysis}
-                  leadershipAnalysis={leadershipAnalysis}
-                  competitiveAnalysis={competitiveAnalysis}
-                  sectorAnalysis={sectorAnalysis}
-                  corporateCalendarAnalysis={corporateCalendarAnalysis}
-                  technicalAnalysis={technicalAnalysis}
-                  contrarianAnalysis={contrarianAnalysis}
-                  quantitativeAnalysis={quantitativeAnalysis}
-                  currencySymbol={selectedCurrency}
                   onRetry={handleRetryAnalysis}
-                  onRetryStep={handleRetryAnalysis}
-                  enabledAgents={enabledAgents}
-                  analysisPhase={analysisPhase}
-                  agentStatuses={agentStatuses}
-                  executionLog={executionLog}
-                  analysisPlan={analysisPlan}
-                  rawFinancials={rawFinancials}
-                  calculatedMetrics={calculatedMetrics}
-                  snapshots={snapshots[currentSymbol] || []}
-                  isCachedView={isCachedView}
-                  onRefresh={handleRefreshAnalysis}
-                  analysisCache={analysisCache}
               />
           </main>
         </div>
@@ -703,25 +697,13 @@ const App: React.FC = () => {
       <div className="bg-gray-50 min-h-screen dark:bg-slate-900 flex flex-col">
         <div className="flex-grow">
           <Header 
-            selectedMarketId={selectedMarketId} 
-            onMarketChange={handleMarketChange} 
-            selectedCurrency={selectedCurrency}
-            onCurrencyChange={handleCurrencyChange}
-            allSymbols={allPredefinedSymbols}
             onSearchSelect={handleSelectStock}
             onSearchSubmit={handleAddStock}
-            addError={addError}
-            onClearAddError={() => setAddError(null)}
-            isAnalysisRunning={isAnalysisRunning}
-            analysisResult={analysisResult}
             onExport={handleExportPdf}
-            onSaveSnapshot={handleSaveSnapshot}
-            isCachedView={isCachedView}
-            onRefresh={handleRefreshAnalysis}
           />
           <div className="container mx-auto px-2 sm:px-4 md:px-6 py-6">
-              <Breadcrumbs currentSymbol={currentSymbol} onNavigateHome={handleNavigateHome} categories={categoriesForComponents} />
-              <NutshellSummary summary={analysisResult?.justification.nutshell_summary} />
+              <Breadcrumbs onNavigateHome={handleNavigateHome} />
+              <NutshellSummary />
               {renderContent()}
           </div>
         </div>

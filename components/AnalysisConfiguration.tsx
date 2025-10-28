@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { AnalysisCacheItem, CACHE_TTL_MS } from '../App';
+import { AnalysisCacheItem } from '../contexts/AnalysisContext';
+import { CACHE_TTL_MS } from '../App';
 import { AgentKey } from '../types';
+import { useAnalysis } from '../contexts/AnalysisContext';
 import { DatabaseIcon, LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, PlayCircleIcon, ChatBubbleLeftRightIcon, ScaleIcon, ShieldExclamationIcon, ChartBarIcon } from './IconComponents';
 
 interface AgentConfig {
@@ -28,8 +30,6 @@ const allAgentsEnabled = agentConfigurations.reduce((acc, agent) => {
 }, {} as Record<AgentKey, boolean>);
 
 interface AnalysisConfigurationProps {
-    stockSymbol: string;
-    analysisCache: Record<string, AnalysisCacheItem>;
     onRunAnalysis: (enabledAgents: Record<AgentKey, boolean>) => void;
     onCancel: () => void;
 }
@@ -49,20 +49,16 @@ const ToggleSwitch: React.FC<{ enabled: boolean; onChange: (enabled: boolean) =>
     </button>
 );
 
-export const AnalysisConfiguration: React.FC<AnalysisConfigurationProps> = ({ stockSymbol, analysisCache, onRunAnalysis, onCancel }) => {
+export const AnalysisConfiguration: React.FC<AnalysisConfigurationProps> = ({ onRunAnalysis, onCancel }) => {
+    const { state } = useAnalysis();
+    const { currentSymbol: stockSymbol } = state;
     const [enabledAgents, setEnabledAgents] = useState<Record<AgentKey, boolean>>(allAgentsEnabled);
 
     const handleToggle = (key: AgentKey) => {
         setEnabledAgents(prev => ({ ...prev, [key]: !prev[key] }));
     };
-    
-    const cacheStatus = (stockSymbol: string): 'Fresh' | 'Stale' => {
-        const cachedItem = analysisCache[stockSymbol];
-        if (!cachedItem || (Date.now() - cachedItem.timestamp > CACHE_TTL_MS)) {
-            return 'Stale';
-        }
-        return 'Fresh';
-    };
+
+    if (!stockSymbol) return null;
 
     return (
         <div className="max-w-2xl mx-auto animate-fade-in">

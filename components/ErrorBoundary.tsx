@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { ExclamationTriangleIcon } from './IconComponents';
 
@@ -13,7 +11,6 @@ interface State {
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
-  // FIX: Explicitly initialize the optional `error` field in the state to better type safety.
   public state: State = {
     hasError: false,
     error: undefined,
@@ -50,15 +47,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <details className="mt-4 text-left max-w-lg w-full">
                 <summary className="text-sm text-slate-500 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300">Error Details</summary>
                 <pre className="mt-2 p-3 text-xs bg-slate-100 dark:bg-slate-800 text-red-500 dark:text-red-400 rounded-md overflow-auto">
-                    {error.name}: {error.message}
-                    {error.stack && `\n\n${error.stack}`}
+                    {/* FIX: Add guard to prevent accessing properties on a potentially undefined error object. */}
+                    {error instanceof Error ? `${error.name}: ${error.message}` : String(error)}
+                    {error instanceof Error && error.stack ? `\n\n${error.stack}` : ''}
                 </pre>
               </details>
           )}
         </div>
       );
     }
-    // FIX: Directly return this.props.children to simplify the render logic and avoid a potentially problematic destructuring assignment on the line where the error was reported.
-    return this.props.children;
+
+    // FIX: The error "Property 'props' does not exist on type 'ErrorBoundary'" suggests an issue with how the TypeScript toolchain is interpreting `this.props`. Destructuring `this.props` is a common pattern that can resolve this.
+    const { children } = this.props;
+    return children;
   }
 }

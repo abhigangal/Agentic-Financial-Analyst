@@ -37,46 +37,36 @@ async function runAgent<T>(systemInstruction: string, userPrompt: string, useGoo
                 config: config,
             });
 
-            const rawText = response.text.trim();
-            console.log(`[Gemini Response] Agent: "${agentName}" | Response Chars: ~${rawText.length}`);
-            
+            if (response.text === undefined || response.text === null) {
+                console.error(`[Gemini Error] Agent "${agentName}" received an empty text response. Full response object:`, response);
+                throw new Error(`Agent "${agentName}" returned an empty response. This may be due to a content filter or an internal model error.`);
+            }
+            const responseText = response.text.trim();
+            console.log(`[Gemini Response] Agent: "${agentName}" | Response Chars: ~${responseText.length}`);
+
             if (!isJsonOutput) {
-                return rawText as T;
+                return responseText as T;
+            }
+            
+            let jsonString = responseText;
+
+            // When using tools like Google Search, `responseMimeType` cannot be set.
+            // The model might wrap its JSON response in markdown fences.
+            // This logic attempts to extract the raw JSON string.
+            if (config.tools) {
+                const match = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+                if (match && match[1]) {
+                    console.log(`[Gemini JSON Fix] Extracted JSON from markdown for agent "${agentName}".`);
+                    jsonString = match[1];
+                }
             }
 
-            let responseText = rawText;
-            const markdownMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/);
-            if (markdownMatch && markdownMatch[1]) {
-                responseText = markdownMatch[1];
-            } else {
-                const firstBrace = rawText.indexOf('{');
-                const lastBrace = rawText.lastIndexOf('}');
-                if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-                    console.error("AI response did not contain a valid JSON object. Raw response:", rawText);
-                    throw new Error("Failed to parse AI response. The response did not contain a valid JSON object.");
-                }
-                responseText = rawText.substring(firstBrace, lastBrace + 1);
-            }
-            
             let rawData;
             try {
-                rawData = JSON.parse(responseText.replace(/\\n/g, "\\n"));
+                rawData = JSON.parse(jsonString);
             } catch (error) {
-                console.warn(`[Gemini JSON Fix] Initial JSON parsing failed for agent "${agentName}". Attempting to fix...`);
-                try {
-                    let fixedJson = responseText.replace(/,\s*(?=[}\]])/g, '');
-                    fixedJson = fixedJson.replace(/([{,]\s*)['"]?([a-zA-Z0-9_]+)['"]?\s*:/g, '$1"$2": ');
-                    
-                    rawData = JSON.parse(fixedJson.replace(/\\n/g, "\\n"));
-                    console.log(`[Gemini JSON Fix] Successfully parsed after fixing for agent "${agentName}".`);
-                } catch (finalError) {
-                    console.error(`[Gemini JSON Fix] Failed to parse AI response for agent "${agentName}" even after attempting to fix.`, {
-                        originalError: error,
-                        finalError: finalError,
-                        originalString: responseText,
-                    });
-                    throw new Error(`Failed to parse AI response for agent "${agentName}". The response was not valid JSON.`);
-                }
+                console.error(`[Gemini JSON Parse Error] Failed to parse JSON for agent "${agentName}". Raw response:`, responseText);
+                throw new Error(`Failed to parse AI response for agent "${agentName}". The model did not return valid JSON.`);
             }
 
             if (useGoogleSearch) {
@@ -322,8 +312,8 @@ export async function getQuantitativeAnalysis(
     }
 }
 
-export async function getLiveMarketData(screenerUrl: string, screenerName: string, marketName: string, isBank: boolean = false): Promise<LiveMarketData> {
-    const userPrompt = `Please extract live market data for the company at URL: ${screenerUrl}`;
+export async function getLiveMarketData(stockSymbol: string, screenerUrl: string, screenerName: string, marketName: string, isBank: boolean = false): Promise<LiveMarketData> {
+    const userPrompt = `Please extract live market data for the company [${stockSymbol}] at URL: ${screenerUrl}`;
     try {
         let systemInstruction: string;
         switch (screenerName) {
@@ -340,6 +330,7 @@ export async function getLiveMarketData(screenerUrl: string, screenerName: strin
         }
         
         systemInstruction = systemInstruction.replace(/\[Market Name\]/g, marketName);
+        systemInstruction = systemInstruction.replace(/\[STOCK_SYMBOL\]/g, stockSymbol);
 
         return await runAgent<LiveMarketData>(systemInstruction, userPrompt, true);
     } catch (e) {

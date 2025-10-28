@@ -1,29 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { FinancialAdvisorIcon, SearchIcon, CameraIcon, ArrowPathIcon } from './IconComponents';
 import { MarketSwitcher, CurrencySwitcher } from './MarketSwitcher';
 import { ThemeSwitcher } from './ThemeSwitcher';
-import { StockAnalysis } from '../types';
 import { ExportButton } from './ExportButton';
+import { useAnalysis } from '../contexts/AnalysisContext';
+// FIX: Import marketConfigs.
+import { marketConfigs } from '../data/markets';
 
 const SearchBar: React.FC<{
-    allSymbols: string[];
     onSelect: (symbol: string) => void;
     onSubmit: (symbol: string) => void;
-    addError: string | null;
-    onClearAddError: () => void;
-    disabled: boolean;
-}> = ({ allSymbols, onSelect, onSubmit, addError, onClearAddError, disabled }) => {
+}> = ({ onSelect, onSubmit }) => {
     const [query, setQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
+    const { state, dispatch, isAnalysisRunning } = useAnalysis();
+    // FIX: Destructure analysisPhase and compute isAnalysisRunning.
+    const { customStockList, selectedMarketId, addError } = state;
+    const activeMarketConfig = useMemo(() => marketConfigs[selectedMarketId], [selectedMarketId]);
 
+    const allSymbols = useMemo(() => {
+        const symbols = new Set<string>();
+        activeMarketConfig.stockCategories.forEach(cat => cat.symbols.forEach(sym => symbols.add(sym)));
+        customStockList.forEach(sym => symbols.add(sym));
+        return Array.from(symbols);
+    }, [activeMarketConfig.stockCategories, customStockList]);
+    
     const filteredSymbols = query ? allSymbols.filter(s => s.toUpperCase().startsWith(query.toUpperCase())).slice(0, 7) : [];
     
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) setIsOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -46,14 +53,8 @@ const SearchBar: React.FC<{
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setQuery(e.target.value);
-        if (e.target.value) {
-            setIsOpen(true);
-        } else {
-            setIsOpen(false);
-        }
-        if (addError) {
-            onClearAddError();
-        }
+        setIsOpen(!!e.target.value);
+        if (addError) dispatch({ type: 'SET_ADD_ERROR', payload: null });
     }
 
     return (
@@ -63,12 +64,8 @@ const SearchBar: React.FC<{
                     <SearchIcon />
                 </div>
                 <input
-                    type="text"
-                    value={query}
-                    onChange={handleInputChange}
-                    onFocus={() => query && setIsOpen(true)}
-                    disabled={disabled}
-                    placeholder="Search or add a stock symbol (e.g., RELIANCE)..."
+                    type="text" value={query} onChange={handleInputChange} onFocus={() => query && setIsOpen(true)}
+                    disabled={isAnalysisRunning} placeholder="Search or add a stock symbol (e.g., RELIANCE)..."
                     className="w-full bg-gray-100/70 border border-gray-300 rounded-lg py-2 pl-10 pr-4 text-slate-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all duration-200 dark:bg-slate-700/80 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400"
                 />
             </form>
@@ -77,20 +74,9 @@ const SearchBar: React.FC<{
                     <ul className="max-h-60 overflow-auto p-1">
                         {filteredSymbols.length > 0 ? (
                             filteredSymbols.map(symbol => (
-                                <li key={symbol}>
-                                    <button
-                                        onClick={() => handleSelect(symbol)}
-                                        className="w-full text-left px-3 py-2 text-sm text-slate-700 rounded-md hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-                                    >
-                                        {symbol}
-                                    </button>
-                                </li>
+                                <li key={symbol}><button onClick={() => handleSelect(symbol)} className="w-full text-left px-3 py-2 text-sm text-slate-700 rounded-md hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700">{symbol}</button></li>
                             ))
-                        ) : (
-                            <li className="px-3 py-2 text-sm text-center text-slate-500 dark:text-slate-400">
-                                No matching symbols found. Press Enter to add.
-                            </li>
-                        )}
+                        ) : ( <li className="px-3 py-2 text-sm text-center text-slate-500 dark:text-slate-400">No matching symbols found. Press Enter to add.</li> )}
                     </ul>
                 </div>
             )}
@@ -99,101 +85,67 @@ const SearchBar: React.FC<{
     );
 };
 
-export interface HeaderProps {
-  selectedMarketId: string;
-  onMarketChange: (marketId: string) => void;
-  selectedCurrency: string;
-  onCurrencyChange: (symbol: string) => void;
-  allSymbols: string[];
+interface HeaderProps {
   onSearchSelect: (symbol: string) => void;
   onSearchSubmit: (symbol: string) => void;
-  addError: string | null;
-  onClearAddError: () => void;
-  isAnalysisRunning: boolean;
-  analysisResult: StockAnalysis | null;
   onExport: () => void;
-  onSaveSnapshot: () => void;
-  isCachedView: boolean;
-  onRefresh: () => void;
 }
 
-
-export const Header: React.FC<HeaderProps> = (props) => {
-  const { 
-    selectedMarketId, onMarketChange, selectedCurrency, onCurrencyChange, 
-    analysisResult, onExport, isAnalysisRunning, onSaveSnapshot,
-    isCachedView, onRefresh
-  } = props;
-  
+export const Header: React.FC<HeaderProps> = ({ onSearchSelect, onSearchSubmit, onExport }) => {
+  const { state, dispatch, isAnalysisRunning } = useAnalysis();
+  // FIX: Destructure analysisPhase and compute isAnalysisRunning.
+  const { selectedMarketId, selectedCurrency, analysisResult, isCachedView, currentSymbol } = state;
   const [isExporting, setIsExporting] = useState(false);
   
   const handleExport = async () => {
     setIsExporting(true);
-    try {
-        await onExport();
-    } finally {
-        setIsExporting(false);
-    }
+    try { await onExport(); } 
+    finally { setIsExporting(false); }
   }
+
+  const handleMarketChange = (marketId: string) => {
+    if (marketId !== selectedMarketId) dispatch({ type: 'SET_MARKET_ID', payload: marketId });
+  }
+
+  const handleCurrencyChange = (symbol: string) => dispatch({ type: 'SET_CURRENCY', payload: symbol });
+  
+  const handleSaveSnapshot = useCallback(() => {
+    if (!currentSymbol || !analysisResult) return;
+    dispatch({ type: 'SAVE_SNAPSHOT', payload: { symbol: currentSymbol, snapshot: { id: new Date().toISOString(), timestamp: Date.now(), analysisResult: JSON.parse(JSON.stringify(analysisResult)) } } });
+  }, [currentSymbol, analysisResult, dispatch]);
+  
+  const handleRefresh = useCallback(() => {
+    if (currentSymbol) {
+        dispatch({ type: 'SET_IS_CACHED_VIEW', payload: false });
+        dispatch({ type: 'SET_IS_CONFIGURING', payload: true });
+    }
+  }, [currentSymbol, dispatch]);
 
   return (
     <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-20 shadow-sm dark:bg-slate-900/80 dark:border-slate-800">
       <div className="container mx-auto px-2 sm:px-4 md:px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <div className="text-blue-500">
-             <FinancialAdvisorIcon className="h-9 w-9" />
-          </div>
-          <div title="Agentic Financial Analyst" className="text-3xl font-bold tracking-tighter text-slate-900 flex items-center dark:text-slate-100">
-            A<span className="text-gray-400 dark:text-gray-600">G</span>
-          </div>
+          <div className="text-blue-500"><FinancialAdvisorIcon className="h-9 w-9" /></div>
+          <div title="Agentic Financial Analyst" className="text-3xl font-bold tracking-tighter text-slate-900 flex items-center dark:text-slate-100">A<span className="text-gray-400 dark:text-gray-600">G</span></div>
         </div>
-
-        <div className="flex-1 flex justify-center px-4">
-            <SearchBar 
-                allSymbols={props.allSymbols}
-                onSelect={props.onSearchSelect}
-                onSubmit={props.onSearchSubmit}
-                addError={props.addError}
-                onClearAddError={props.onClearAddError}
-                disabled={props.isAnalysisRunning}
-            />
-        </div>
-
+        <div className="flex-1 flex justify-center px-4"><SearchBar onSelect={onSearchSelect} onSubmit={onSearchSubmit} /></div>
         <div className="flex items-center gap-2 sm:gap-4">
             {analysisResult && (
                 <>
                     {isCachedView && (
-                        <button
-                            onClick={onRefresh}
-                            disabled={isAnalysisRunning}
-                            className="flex items-center justify-center gap-2 h-9 px-4 bg-blue-100 hover:bg-blue-200 rounded-md text-blue-700 font-semibold transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed shrink-0 dark:bg-blue-900/50 dark:hover:bg-blue-900 dark:text-blue-300"
-                            title="Refresh analysis with the latest data."
-                            data-test="refresh-analysis-button"
-                        >
-                            <ArrowPathIcon className="h-5 w-5" />
-                            <span className="hidden md:inline">Refresh</span>
+                        <button onClick={handleRefresh} disabled={isAnalysisRunning} className="flex items-center justify-center gap-2 h-9 px-4 bg-blue-100 hover:bg-blue-200 rounded-md text-blue-700 font-semibold transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed shrink-0 dark:bg-blue-900/50 dark:hover:bg-blue-900 dark:text-blue-300" title="Refresh analysis with the latest data." data-test="refresh-analysis-button">
+                            <ArrowPathIcon className="h-5 w-5" /><span className="hidden md:inline">Refresh</span>
                         </button>
                     )}
-                    <button
-                        onClick={onSaveSnapshot}
-                        disabled={isAnalysisRunning}
-                        className="flex items-center justify-center gap-2 h-9 px-4 bg-purple-600 hover:bg-purple-500 rounded-md text-white font-semibold transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed shrink-0"
-                        title="Save a snapshot of the current analysis."
-                        data-test="save-snapshot-button"
-                    >
-                        <CameraIcon className="h-5 w-5" />
-                        <span className="hidden md:inline">Save Snapshot</span>
+                    <button onClick={handleSaveSnapshot} disabled={isAnalysisRunning} className="flex items-center justify-center gap-2 h-9 px-4 bg-purple-600 hover:bg-purple-500 rounded-md text-white font-semibold transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed shrink-0" title="Save a snapshot of the current analysis." data-test="save-snapshot-button">
+                        <CameraIcon className="h-5 w-5" /><span className="hidden md:inline">Save Snapshot</span>
                     </button>
-                    <ExportButton 
-                        isLoading={isExporting}
-                        onClick={handleExport}
-                        disabled={!analysisResult || isAnalysisRunning}
-                    />
+                    <ExportButton isLoading={isExporting} onClick={handleExport} disabled={!analysisResult || isAnalysisRunning} />
                 </>
             )}
             <div className="hidden sm:flex items-center gap-2">
-              <CurrencySwitcher selectedCurrency={selectedCurrency} onCurrencyChange={onCurrencyChange} />
-              <MarketSwitcher selectedMarketId={selectedMarketId} onMarketChange={onMarketChange} />
+              <CurrencySwitcher selectedCurrency={selectedCurrency} onCurrencyChange={handleCurrencyChange} />
+              <MarketSwitcher selectedMarketId={selectedMarketId} onMarketChange={handleMarketChange} />
             </div>
             <ThemeSwitcher />
         </div>

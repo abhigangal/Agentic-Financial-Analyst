@@ -1,44 +1,39 @@
 import React, { useMemo } from 'react';
 import { StockCategory } from '../types';
+import { useAnalysis } from '../contexts/AnalysisContext';
+import { marketConfigs } from '../data/markets';
 
 interface BreadcrumbsProps {
-  categories: StockCategory[];
-  currentSymbol: string | null;
   onNavigateHome: () => void;
 }
 
-export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ categories, currentSymbol, onNavigateHome }) => {
+export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ onNavigateHome }) => {
+    const { state } = useAnalysis();
+    const { currentSymbol, selectedMarketId, customStockList } = state;
+    const activeMarketConfig = marketConfigs[selectedMarketId];
+
+    const categories = useMemo(() => {
+        const allCategories: StockCategory[] = [...activeMarketConfig.stockCategories];
+        if (customStockList.length > 0) {
+            return [{ name: 'My Stocks', symbols: customStockList, description: 'Your saved stocks.', key_influencers: [] }, ...allCategories];
+        }
+        return allCategories;
+    }, [activeMarketConfig, customStockList]);
+
     const breadcrumbPath = useMemo(() => {
-        if (!currentSymbol) {
-            return [];
-        }
+        if (!currentSymbol) return [];
 
-        const myStocksCategory = categories.find(c => c.name === 'My Stocks');
-        const isCustom = myStocksCategory?.symbols.includes(currentSymbol);
+        let category: StockCategory | undefined = categories.find(cat => cat.symbols.includes(currentSymbol));
 
-        let category: StockCategory | undefined;
-        if (isCustom) {
-            category = myStocksCategory;
-        } else {
-            category = categories.find(cat => cat.symbols.includes(currentSymbol));
-        }
-
-        const path = [
-            { name: 'Home', action: onNavigateHome }
-        ];
-
-        if (category) {
-             path.push({ name: category.name, action: () => {} }); // Not clickable for now
-        }
-        
+        const path = [{ name: 'Home', action: onNavigateHome }];
+        if (category) path.push({ name: category.name, action: () => {} });
         path.push({ name: currentSymbol, action: () => {} });
 
         return path;
-
     }, [currentSymbol, categories, onNavigateHome]);
 
     if (breadcrumbPath.length === 0) {
-        return <div className="h-9"></div>; // Placeholder to prevent layout shift
+        return <div className="h-9"></div>;
     }
 
     return (

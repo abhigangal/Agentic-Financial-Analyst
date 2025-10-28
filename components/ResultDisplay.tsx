@@ -1,5 +1,5 @@
-import React from 'react';
-import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CalculatedMetric, CompetitiveAnalysis, MarketIntelligenceAnalysis } from '../types';
+import React, { useMemo } from 'react';
+import { StockAnalysis, EsgAnalysis, MacroAnalysis, LeadershipAnalysis, CalculatedMetric, CompetitiveAnalysis, MarketIntelligenceAnalysis, FinancialMetrics } from '../types';
 import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, ScaleIcon, DocumentTextIcon, LightBulbIcon, ExclamationTriangleIcon, LinkIcon, SparklesIcon, LeafIcon, GlobeAltIcon, ClockIcon, UserGroupIcon, NewspaperIcon, InformationCircleIcon, ClipboardDocumentListIcon, ChatBubbleLeftRightIcon } from './IconComponents';
 import { Tooltip } from './Tooltip';
 import { VisualGauge } from './VisualGauge';
@@ -265,14 +265,58 @@ export const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, esgAnalysi
   const formattedDate = formatDate(result.last_updated);
   const sentimentValue = sentimentMap[result.overall_sentiment];
 
+  const calculatedIndustryAverageMetrics = useMemo((): FinancialMetrics | null => {
+    if (!competitiveAnalysis || !competitiveAnalysis.competitors || competitiveAnalysis.competitors.length === 0) {
+        return competitiveAnalysis?.industry_average_metrics ?? null;
+    }
+
+    const averages: { [key in keyof FinancialMetrics]: { sum: number; count: number } } = {
+        market_cap: { sum: 0, count: 0 },
+        pe_ratio: { sum: 0, count: 0 },
+        pb_ratio: { sum: 0, count: 0 },
+        debt_to_equity: { sum: 0, count: 0 },
+        roe: { sum: 0, count: 0 },
+    };
+
+    for (const competitor of competitiveAnalysis.competitors) {
+        if (!competitor.metrics) continue;
+        
+        for (const key of Object.keys(averages) as (keyof FinancialMetrics)[]) {
+            const parsed = parseMetricValue(competitor.metrics[key]);
+            if (parsed !== null && isFinite(parsed)) {
+                averages[key].sum += parsed;
+                averages[key].count++;
+            }
+        }
+    }
+    
+    const formatAverage = (key: keyof FinancialMetrics): string | null => {
+        const avgData = averages[key];
+        if (avgData.count === 0) return 'N/A';
+        const avg = avgData.sum / avgData.count;
+
+        if (key === 'market_cap') return `${currencySymbol}${avg.toFixed(2)} Cr`;
+        if (key === 'roe') return `${avg.toFixed(2)}%`;
+        return avg.toFixed(2);
+    };
+    
+    return {
+        market_cap: formatAverage('market_cap'),
+        pe_ratio: formatAverage('pe_ratio'),
+        pb_ratio: formatAverage('pb_ratio'),
+        debt_to_equity: formatAverage('debt_to_equity'),
+        roe: formatAverage('roe'),
+    };
+  }, [competitiveAnalysis, currencySymbol]);
+
   const companyPERatio = calculatedMetrics.peRatio?.value;
-  const industryPERatio = parseMetricValue(competitiveAnalysis?.industry_average_metrics?.pe_ratio);
+  const industryPERatio = parseMetricValue(calculatedIndustryAverageMetrics?.pe_ratio);
   const companyPBRatio = calculatedMetrics.pbRatio?.value;
-  const industryPBRatio = parseMetricValue(competitiveAnalysis?.industry_average_metrics?.pb_ratio);
+  const industryPBRatio = parseMetricValue(calculatedIndustryAverageMetrics?.pb_ratio);
   const companyDebtToEquity = calculatedMetrics.debtToEquity?.value;
-  const industryDebtToEquity = parseMetricValue(competitiveAnalysis?.industry_average_metrics?.debt_to_equity);
+  const industryDebtToEquity = parseMetricValue(calculatedIndustryAverageMetrics?.debt_to_equity);
   const companyROE = calculatedMetrics.roe?.value;
-  const industryROE = parseMetricValue(competitiveAnalysis?.industry_average_metrics?.roe);
+  const industryROE = parseMetricValue(calculatedIndustryAverageMetrics?.roe);
   
   const TABS = {
       OVERVIEW_RISK: 'Overview & Risk',

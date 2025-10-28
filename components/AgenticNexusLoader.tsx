@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { AnalysisPhase } from '../App';
+// FIX: Import AnalysisPhase from the context where it is defined.
+import { AnalysisPhase } from '../contexts/AnalysisContext';
 import { ExecutionStep } from '../types';
 import { AgentKey } from '../types';
 import { LeafIcon, GlobeAltIcon, NewspaperIcon, UserGroupIcon, TrophyIcon, BuildingOfficeIcon, CalendarDaysIcon, ShieldExclamationIcon } from './IconComponents';

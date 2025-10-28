@@ -237,6 +237,8 @@ export interface RawFinancials {
     book_value_per_share: number | null;
     total_debt: number | null;
     total_equity: number | null;
+    share_capital?: number | null;
+    reserves?: number | null;
     // Direct ratios for sources that provide them instead of raw numbers
     pe_ratio?: number | null;
     pb_ratio?: number | null;
@@ -264,6 +266,8 @@ export interface HistoricalFinancials {
     book_value_per_share: number | null;
     total_debt: number | null;
     total_equity: number | null;
+    share_capital?: number | null;
+    reserves?: number | null;
     pe_ratio?: number | null;
     pb_ratio?: number | null;
     debt_to_equity_ratio?: number | null;

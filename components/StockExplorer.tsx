@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { StockCategory } from '../types';
 import { SearchIcon, PlusIcon, SpinnerIcon, XMarkIcon, DatabaseIcon } from './IconComponents';
-import { AnalysisCacheItem, CACHE_TTL_MS } from '../../App';
+// FIX: Import AnalysisCacheItem from AnalysisContext where it is defined.
+import { AnalysisCacheItem } from '../contexts/AnalysisContext';
+// FIX: Import CACHE_TTL_MS from App.tsx. The path is relative to the current file.
+import { CACHE_TTL_MS } from '../App';
 import { Tooltip } from './Tooltip';
 
 interface StockExplorerProps {

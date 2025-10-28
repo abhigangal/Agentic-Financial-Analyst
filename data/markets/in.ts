@@ -1,17 +1,16 @@
 
 
-
-
 import { GoogleGenAI } from "@google/genai";
 import { StockCategory, MarketConfig, Expert } from '../../types';
 
 // This logic is moved from geminiService.ts and adapted for this specific market.
-const validateYahooInSymbol = async (symbol: string): Promise<boolean> => {
+const validateScreenerInSymbol = async (symbol: string): Promise<boolean> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // Assume symbol is already correctly formatted (e.g., ends with .NS)
-    const urlToCheck = `https://finance.yahoo.com/quote/${symbol.toUpperCase()}`;
-    const contents = `URL: ${urlToCheck}. Is this a valid Yahoo Finance page for a publicly traded stock? Answer ONLY "YES" or "NO".`;
+    // Screener.in doesn't use .NS or .BO suffixes.
+    const symbolWithoutSuffix = symbol.replace(/\.NS$|\.BO$/i, '');
+    const urlToCheck = `https://www.screener.in/company/${symbolWithoutSuffix.toUpperCase()}/consolidated/`;
+    const contents = `URL: ${urlToCheck}. Is this a valid Screener.in page for a publicly traded company? The page should have sections like "Quarterly Results" and "Profit & Loss". Answer ONLY "YES" or "NO".`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -24,7 +23,7 @@ const validateYahooInSymbol = async (symbol: string): Promise<boolean> => {
 
     return response.text.trim().toUpperCase().startsWith('YES');
   } catch (error) {
-    console.error(`Error validating symbol ${symbol} on Yahoo Finance:`, error);
+    console.error(`Error validating symbol ${symbol} on Screener.in:`, error);
     return false;
   }
 };
@@ -119,6 +118,30 @@ const stockCategories: StockCategory[] = [
     ]
   },
   {
+    "name": "Platform / New Age",
+    "symbols": ["ZOMATO.NS", "PAYTM.NS", "POLICYBZR.NS", "NYKAA.NS", "DELHIVERY.NS", "NAZARA.NS"],
+    "description": "A new generation of technology-driven companies, often in platform-based businesses like e-commerce, fintech, and online services.",
+    "key_influencers": [
+      "Path to profitability and cash burn rate",
+      "Regulatory changes for digital businesses",
+      "User growth and engagement metrics",
+      "Competitive intensity from global and local players",
+      "Venture capital funding environment"
+    ]
+  },
+  {
+    "name": "Retail",
+    "symbols": ["DMART.NS", "TRENT.NS", "RELIANCE.NS", "ABFRL.NS", "VEDANTFASH.NS"],
+    "description": "Companies operating in the organized retail sector, including supermarkets, hypermarkets, and fashion & lifestyle brands. (Note: Reliance is a conglomerate with a massive retail presence).",
+    "key_influencers": [
+      "Consumer discretionary spending and festive season sales",
+      "Same-store sales growth (SSSG)",
+      "Inventory management and supply chain efficiency",
+      "E-commerce competition and omnichannel strategy",
+      "Rental costs and real estate trends"
+    ]
+  },
+  {
     "name": "Pharma",
     "symbols": ["SUNPHARMA.NS", "CIPLA.NS", "DRREDDY.NS", "DIVISLAB.NS", "APOLLOHOSP.NS", "LUPIN.NS", "AUROPHARMA.NS", "ALKEM.NS", "BIOCON.NS", "TORNTPHARM.NS", "GLENMARK.NS", "ZYDUSLIFE.NS"],
     "description": "This sector includes companies engaged in the research, development, manufacturing, and marketing of pharmaceutical drugs and healthcare products, both for domestic and international markets.",
@@ -144,7 +167,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Auto",
-    "symbols": ["MARUTI.NS", "TATAMOTORS.NS", "M&M.NS", "BAJAJ-AUTO.NS", "HEROMOTOCO.NS", "EICHERMOT.NS", "TVSMOTOR.NS", "ASHOKLEY.NS", "BOSCHLTD.NS", "BHARATFORG.NS", "SONACOMS.NS", "MOTHERSUMI.NS", "ATULAUTO.NS"],
+    "symbols": ["MARUTI.NS", "TATAMOTORS.NS", "M&M.NS", "BAJAJ-AUTO.NS", "HEROMOTOCO.NS", "EICHERMOT.NS", "TVSMOTOR.NS", "ASHOKLEY.NS", "BOSCHLTD.NS", "BHARATFORG.NS", "SONACOMS.NS", "MOTHERSUMI.NS", "ATULAUTO.NS", "FORCEMOT.NS"],
     "description": "The Automotive sector includes manufacturers of passenger vehicles, commercial vehicles, two-wheelers, and auto components, catering to both domestic and export markets.",
     "key_influencers": [
       "Economic growth and consumer sentiment",
@@ -360,7 +383,7 @@ const stockCategories: StockCategory[] = [
   },
   {
     "name": "Hotels & Leisure",
-    "symbols": ["INDIANHOTEL.NS", "EIH.NS", "CHALET.NS", "TAJGVK.NS", "LEMONTREE.NS", "BLISSGVS.NS", "EASEMYTRIP.NS"],
+    "symbols": ["INDIANHOTEL.NS", "EIH.NS", "CHALET.NS", "TAJGVK.NS", "LEMONTREE.NS", "BLISSGVS.NS", "EASEMYTRIP.NS", "DELTACORP.NS"],
     "description": "Companies operating hotels, resorts, and providing other hospitality and leisure services, benefiting from business and tourism travel.",
     "key_influencers": [
       "Economic growth and discretionary spending",
@@ -437,9 +460,9 @@ const stockCategories: StockCategory[] = [
 export const inMarketConfig: MarketConfig = {
     id: 'IN',
     name: 'India',
-    screenerName: 'Yahoo Finance',
-    screenerUrlTemplate: 'https://finance.yahoo.com/quote/{symbol}',
-    validateSymbol: validateYahooInSymbol,
+    screenerName: 'Screener.in',
+    screenerUrlTemplate: 'https://www.screener.in/company/{symbol}/consolidated/',
+    validateSymbol: validateScreenerInSymbol,
     stockCategories: stockCategories,
     experts: experts,
     currencySymbol: '₹',

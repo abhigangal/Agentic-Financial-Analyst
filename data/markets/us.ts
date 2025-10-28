@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI } from "@google/genai";
 import { StockCategory, MarketConfig } from '../../types';
 
